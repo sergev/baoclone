@@ -30,9 +30,10 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <sys/stat.h>
 #ifdef MINGW32
 #   include <windows.h>
+#else
+#   include <sys/stat.h>
 #endif
 #include "util.h"
 
@@ -70,18 +71,18 @@ const int DCS_CODES [NDCS] = {
 //
 int is_file (char *filename)
 {
+#ifdef MINGW32
+    // Treat COM* as a device.
+    return strncasecmp (filename, "com", 3) != 0;
+#else
     struct stat st;
 
     if (stat (filename, &st) < 0) {
-#ifdef MINGW32
-        // File not exist: treat it as a device.
-        return strncasecmp (filename, "com", 3) != 0;
-#else
         // File not exist: treat it as a regular file.
         return 1;
-#endif
     }
     return (st.st_mode & S_IFMT) == S_IFREG;
+#endif
 }
 
 //

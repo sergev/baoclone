@@ -14,7 +14,7 @@ to 'device.conf':
 
     baoclone [-v] port
 
-Write image to device.
+Write image to device:
 
     baoclone -w [-v] port file.img
 
@@ -27,7 +27,7 @@ Show configuration from image file:
 
     baoclone file.img
 
-Option -v enables tracing of a serial protocol to the radio:
+Option -v enables tracing of a serial protocol to the radio.
 
 
 === Sources ===

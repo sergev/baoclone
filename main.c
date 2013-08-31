@@ -31,7 +31,7 @@
 #include "radio.h"
 #include "util.h"
 
-const char version[] = "1.0";
+const char version[] = "1.0.1";
 const char copyright[] = "Copyright (C) 2013 Serge Vakulenko KK6ABQ";
 
 extern char *optarg;
