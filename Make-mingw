@@ -1,0 +1,18 @@
+CC		= gcc -m32
+
+CFLAGS		= -g -O -Wall -DMINGW32 -Werror
+LDFLAGS		= -s
+
+OBJS		= main.o util.o radio.o uv-5r.o uv-b5.o bf-888s.o
+LIBS            =
+
+all:		baoclone.exe
+
+baoclone.exe:	$(OBJS)
+		$(CC) $(LDFLAGS) -o $@ $(OBJS) $(LIBS)
+
+###
+main.o: main.c radio.h util.h
+radio.o: radio.c radio.h util.h
+util.o: util.c util.h
+uv-5r.o: uv-5r.c radio.h util.h
