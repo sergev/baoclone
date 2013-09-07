@@ -300,6 +300,8 @@ static void setup_channel (int i, double rx_mhz, double tx_mhz,
     ch->noscan = ! scan;
     ch->nobcl = ! bcl;
     ch->noscr = ! scramble;
+    ch->_u1 = ~0;
+    ch->_u3[0] = ch->_u3[1] = ch->_u3[2] = ~0;
 }
 
 static void print_offset (FILE *out, int delta)

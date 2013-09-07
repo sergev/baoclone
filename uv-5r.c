@@ -384,6 +384,11 @@ static void setup_channel (int i, char *name, double rx_mhz, double tx_mhz,
     ch->scode = scode;
     ch->pttidbot = pttid & 1;
     ch->pttideot = pttid >> 1;
+    ch->_u1 = 0;
+    ch->_u2 = 0;
+    ch->_u3 = 0;
+    ch->_u4 = 0;
+    ch->_u5 = 0;
 
     // Copy channel name.
     strncpy ((char*) &radio_mem[0x1000 + i*16], name, 7);
