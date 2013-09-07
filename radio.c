@@ -42,7 +42,7 @@
 
 int radio_port;                         // File descriptor of programming serial port
 unsigned char radio_ident [8];          // Radio: identifier
-unsigned char radio_mem [0x2000];       // Radio: memory contents
+unsigned char radio_mem [0x7000];       // Radio: memory contents
 int radio_progress;                     // Read/write progress counter
 
 static radio_device_t *device;          // Device-dependent interface
@@ -356,6 +356,10 @@ void radio_read_image (char *filename)
         break;
     case 992:
         device = &radio_bf888s;
+        break;
+    case 28616:
+    case 31435:
+        device = &radio_ft60r;
         break;
     default:
         fprintf (stderr, "%s: Unrecognized file size %u bytes.\n",

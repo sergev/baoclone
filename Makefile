@@ -4,7 +4,7 @@ CC		= gcc -m32
 CFLAGS		= -g -O -Wall -Werror
 LDFLAGS		=
 
-OBJS		= main.o util.o radio.o uv-5r.o uv-b5.o bf-888s.o
+OBJS		= main.o util.o radio.o uv-5r.o uv-b5.o bf-888s.o ft-60r.o
 LIBS            =
 
 all:		baoclone
