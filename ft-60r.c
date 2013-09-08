@@ -34,6 +34,16 @@
 #include "util.h"
 
 #define NCHAN 1000
+#define MEMSZ 0x6fc8
+
+static const char *BAND_NAME[5] = { "144", "250", "350", "430", "850" };
+
+static const char *POWER_NAME[] = { "High", "Med", "Low", "??" };
+
+static const char *SCAN_NAME[] = { "+", "Pref", "-", "??" };
+
+static const char *STEP_NAME[] = { "5.0", "10.0", "12.5", "15.0",
+                                   "20.0", "25.0", "50.0", "100.0" };
 
 //
 // Print a generic information about the device.
@@ -45,47 +55,31 @@ static void ft60r_print_version (FILE *out)
 
 //
 // Read block of data, up to 8 bytes.
-// Halt the program on any error.
+// When start==0, return non-zero on success or 0 when empty.
+// When start!=0, halt the program on any error.
 //
-static void read_block (int fd, int start, unsigned char *data, int nbytes)
+static int read_block (int fd, int start, unsigned char *data, int nbytes)
 {
-    unsigned char cmd[4], reply[4];
-    int addr, len;
-
-    // Send command.
-    cmd[0] = 'R';
-    cmd[1] = start >> 8;
-    cmd[2] = start;
-    cmd[3] = nbytes;
-    serial_write (fd, cmd, 4);
-
-    // Read reply.
-    if (serial_read (fd, reply, 4) != 4) {
-        fprintf (stderr, "Radio refused to send block 0x%04x.\n", start);
-        exit(-1);
-    }
-    addr = reply[1] << 8 | reply[2];
-    if (reply[0] != 'W' || addr != start || reply[3] != nbytes) {
-        fprintf (stderr, "Bad reply for block 0x%04x of %d bytes: %02x-%02x-%02x-%02x\n",
-            start, nbytes, reply[0], reply[1], reply[2], reply[3]);
-        exit(-1);
-    }
+    unsigned char reply;
+    int len;
 
     // Read data.
-    len = serial_read (fd, data, 8);
+    len = serial_read (fd, data, nbytes);
     if (len != nbytes) {
+        if (start == 0)
+            return 0;
         fprintf (stderr, "Reading block 0x%04x: got only %d bytes.\n", start, len);
         exit(-1);
     }
 
     // Get acknowledge.
     serial_write (fd, "\x06", 1);
-    if (serial_read (fd, reply, 1) != 1) {
+    if (serial_read (fd, &reply, 1) != 1) {
         fprintf (stderr, "No acknowledge after block 0x%04x.\n", start);
         exit(-1);
     }
-    if (reply[0] != 0x06) {
-        fprintf (stderr, "Bad acknowledge after block 0x%04x: %02x\n", start, reply[0]);
+    if (reply != 0x06) {
+        fprintf (stderr, "Bad acknowledge after block 0x%04x: %02x\n", start, reply);
         exit(-1);
     }
     if (verbose) {
@@ -94,11 +88,12 @@ static void read_block (int fd, int start, unsigned char *data, int nbytes)
         printf ("\n");
     } else {
         ++radio_progress;
-        if (radio_progress % 4 == 0) {
+        if (radio_progress % 16 == 0) {
             fprintf (stderr, "#");
             fflush (stderr);
         }
     }
+    return 1;
 }
 
 //
@@ -107,6 +102,7 @@ static void read_block (int fd, int start, unsigned char *data, int nbytes)
 //
 static void write_block (int fd, int start, const unsigned char *data, int nbytes)
 {
+#if 0
     unsigned char cmd[4], reply;
 
     // Send command.
@@ -133,11 +129,12 @@ static void write_block (int fd, int start, const unsigned char *data, int nbyte
         printf ("\n");
     } else {
         ++radio_progress;
-        if (radio_progress % 4 == 0) {
+        if (radio_progress % 16 == 0) {
             fprintf (stderr, "#");
             fflush (stderr);
         }
     }
+#endif
 }
 
 //
@@ -145,15 +142,55 @@ static void write_block (int fd, int start, const unsigned char *data, int nbyte
 //
 static void ft60r_download()
 {
-    int addr;
+    int addr, sum;
 
-    memset (radio_mem, 0xff, 0x400);
-    for (addr=0x10; addr<0x110; addr+=8)
-        read_block (radio_port, addr, &radio_mem[addr], 8);
-    for (addr=0x2b0; addr<0x2c0; addr+=8)
-        read_block (radio_port, addr, &radio_mem[addr], 8);
-    for (addr=0x3c0; addr<0x3e0; addr+=8)
-        read_block (radio_port, addr, &radio_mem[addr], 8);
+    if (verbose)
+        fprintf (stderr, "\nPlease follow the procedure:\n");
+    else
+        fprintf (stderr, "please follow the procedure.\n");
+    fprintf (stderr, "\n");
+    fprintf (stderr, "1. Power Off the FT60.\n");
+    fprintf (stderr, "2. Hold down the MONI switch and Power On the FT60.\n");
+    fprintf (stderr, "3. Rotate the right DIAL knob to select F8 CLONE.\n");
+    fprintf (stderr, "4. Briefly press the [F/W] key. The display should go blank then show CLONE.\n");
+    fprintf (stderr, "5. Press and hold the PTT switch until the radio starts to send.\n");
+    fprintf (stderr, "-- Or enter ^C to abort the memory read.\n");
+again:
+    fprintf (stderr, "\n");
+    fprintf (stderr, "Waiting for data... ");
+    fflush (stderr);
+
+    // Wait for the first 8 bytes.
+    while (read_block (radio_port, 0, radio_ident, 8) == 0)
+        continue;
+
+    // Get the rest of data.
+    for (addr=8; addr<MEMSZ; addr+=64)
+        read_block (radio_port, addr, &radio_mem[addr], 64);
+
+    // Get the checksum.
+    read_block (radio_port, MEMSZ, &radio_mem[MEMSZ], 1);
+
+    // Verify the checksum.
+    sum = 0;
+    for (addr=0; addr<8; addr++)
+        sum += radio_ident[addr];
+    for (addr=8; addr<MEMSZ; addr++)
+        sum += radio_mem[addr];
+    sum = sum & 0xff;
+    if (sum != radio_mem[MEMSZ]) {
+        if (verbose) {
+            printf ("Checksum = %02x (BAD)\n", radio_mem[MEMSZ]);
+            fprintf (stderr, "BAD CHECKSUM!\n");
+        } else
+            fprintf (stderr, "[BAD CHECKSUM]\n");
+        fprintf (stderr, "Please, repeat the procedure:\n");
+        fprintf (stderr, "Press and hold the PTT switch until the radio starts to send.\n");
+        fprintf (stderr, "Or enter ^C to abort the memory read.\n");
+        goto again;
+    }
+    if (verbose)
+        printf ("Checksum = %02x (OK)\n", radio_mem[MEMSZ]);
 }
 
 //
@@ -163,40 +200,14 @@ static void ft60r_upload()
 {
     int addr;
 
-    for (addr=0x10; addr<0x110; addr+=8)
-        write_block (radio_port, addr, &radio_mem[addr], 8);
-    for (addr=0x2b0; addr<0x2c0; addr+=8)
-        write_block (radio_port, addr, &radio_mem[addr], 8);
-    for (addr=0x3c0; addr<0x3e0; addr+=8)
-        write_block (radio_port, addr, &radio_mem[addr], 8);
+    write_block (radio_port, 0, radio_ident, 8);
+    for (addr=8; addr<MEMSZ; addr+=64)
+        write_block (radio_port, addr, &radio_mem[addr], 64);
+    // TODO: checksum
+    write_block (radio_port, MEMSZ, &radio_mem[MEMSZ], 1);
 }
 
 #if 0
-static void decode_squelch (uint16_t bcd, int *ctcs, int *dcs)
-{
-    if (bcd == 0 || bcd == 0xffff) {
-        // Squelch disabled.
-        return;
-    }
-    int index = ((bcd >> 12) & 15) * 1000 +
-                ((bcd >> 8)  & 15) * 100 +
-                ((bcd >> 4)  & 15) * 10 +
-                (bcd         & 15);
-
-    if (index < 8000) {
-        // CTCSS value is Hz multiplied by 10.
-        *ctcs = index;
-        *dcs = 0;
-        return;
-    }
-    // DCS mode.
-    if (index < 12000)
-        *dcs = index - 8000;
-    else
-        *dcs = - (index - 12000);
-    *ctcs = 0;
-}
-
 //
 // Convert squelch string to tone value in BCD format.
 // Four possible formats:
@@ -245,68 +256,131 @@ static int encode_squelch (char *str)
 #endif
 
 typedef struct {
-    uint8_t     duplex    : 4,
-                isam      : 1,
-                isnarrow  : 1,
+    uint8_t     duplex    : 4,  // Repeater mode
+#define D_SIMPLEX       0
+#define D_NEG_OFFSET    2
+#define D_POS_OFFSET    3
+#define D_CROSS_BAND    4
+                isam      : 1,  // Amplitude modulation
+                isnarrow  : 1,  // Narrow FM modulation
                 _u1       : 1,
-                used      : 1;
-    uint8_t     rxfreq [3];
-    uint8_t     tmode     : 3,
-                step      : 3,
+                used      : 1;  // Channel is used
+    uint8_t     rxfreq [3];     // Receive frequency
+    uint8_t     tmode     : 3,  // CTCSS/DCS mode
+#define T_OFF           0
+#define T_TONE          1
+#define T_TSQL          2
+#define T_TSQL_REV      3
+#define T_DTCS          4
+#define T_D             5
+#define T_T_DCS         6
+#define T_D_TSQL        7
+                step      : 3,  // Frequency step
                 _u2       : 2;
-    uint8_t     txfreq [3];
-    uint8_t     tone      : 6,
-                power     : 2;
-    uint8_t     dtcs      : 7,
+    uint8_t     txfreq [3];     // Transmit frequency when cross-band
+    uint8_t     tone      : 6,  // CTCSS tone select
+                power     : 2;  // Transmit power level
+    uint8_t     dtcs      : 7,  // DCS code select
                 _u3       : 1;
     uint8_t     _u4 [2];
-    uint8_t     offset;
+    uint8_t     offset;         // TX offset, in 50kHz steps
     uint8_t     _u5 [3];
 } memory_channel_t;
+
+#if 0
+80 043000 50 000000 0c 00 0f00 64 000000 // 430.000
+83 044310 50 000000 0c 00 0f00 64 000000 // 443.100 +
+83 844312 50 000000 0c 00 0f00 64 000000 // 443.125 +
+80 c16293 21 000000 0c 00 0f00 0c 000000 // 162.9375 tone 100.0
+#endif
 
 //
 // Convert 32-bit value from binary coded decimal
 // to integer format (8 digits).
 //
-int bcd6_to_int (uint8_t *bcd)
+int freq_to_hz (uint8_t *bcd)
 {
-    return ((bcd[0] >> 4) & 15) * 100000 +
-            (bcd[0]       & 15) * 10000 +
-           ((bcd[1] >> 4) & 15) * 1000 +
-            (bcd[1]       & 15) * 100 +
-           ((bcd[2] >> 4) & 15) * 10 +
-            (bcd[2]       & 15);
+    int hz;
+
+    hz = (bcd[0]       & 15) * 100000000 +
+        ((bcd[1] >> 4) & 15) * 10000000 +
+         (bcd[1]       & 15) * 1000000 +
+        ((bcd[2] >> 4) & 15) * 100000 +
+         (bcd[2]       & 15) * 10000;
+    hz += (bcd[0] >> 6) * 2500;
+    return hz;
 }
 
-static void decode_channel (int i, int *rx_hz, int *tx_hz,
+static void decode_channel (int i, int seek, int *rx_hz, int *tx_hz,
     int *rx_ctcs, int *tx_ctcs, int *rx_dcs, int *tx_dcs,
-    int *lowpower, int *wide, int *scan, int *isam, int *duplex)
+    int *power, int *wide, int *scan, int *isam, int *step)
 {
-    memory_channel_t *ch = i + (memory_channel_t*) &radio_mem[0x0248];
+    memory_channel_t *ch = i + (memory_channel_t*) &radio_mem[seek];
+    unsigned char *scan_data = i/4 + &radio_mem[0x6ec8];
 
     *rx_hz = *tx_hz = *rx_ctcs = *tx_ctcs = *rx_dcs = *tx_dcs = 0;
-    if (! ch->used)
+    if (! ch->used && seek == 0x0248)
         return;
 
     // Decode channel frequencies.
-    *rx_hz = bcd6_to_int (ch->rxfreq) * 10000;
-    *tx_hz = bcd6_to_int (ch->txfreq) * 10000;
+    *rx_hz = freq_to_hz (ch->rxfreq);
+
+    *tx_hz = *rx_hz;
+    switch (ch->duplex) {
+    case D_NEG_OFFSET:
+        *tx_hz -= ch->offset * 50000;
+        break;
+    case D_POS_OFFSET:
+        *tx_hz += ch->offset * 50000;
+        break;
+    case D_CROSS_BAND:
+        *tx_hz = freq_to_hz (ch->txfreq);
+        break;
+    }
 
     // Decode squelch modes.
-    //decode_squelch (ch->rxtone, rx_ctcs, rx_dcs);
-    //decode_squelch (ch->txtone, tx_ctcs, tx_dcs);
+    switch (ch->tmode) {
+    case T_TONE:
+        *tx_ctcs = CTCSS_TONES[ch->tone];
+        break;
+    case T_TSQL:
+        *tx_ctcs = CTCSS_TONES[ch->tone];
+        *rx_ctcs = CTCSS_TONES[ch->tone];
+        break;
+    case T_TSQL_REV:
+        *tx_ctcs = CTCSS_TONES[ch->tone];
+        *rx_ctcs = - CTCSS_TONES[ch->tone];
+        break;
+    case T_DTCS:
+        *tx_dcs = DCS_CODES[ch->dtcs];
+        *rx_dcs = DCS_CODES[ch->dtcs];
+        break;
+    case T_D:
+        *tx_dcs = DCS_CODES[ch->dtcs];
+        break;
+    case T_T_DCS:
+        *tx_ctcs = CTCSS_TONES[ch->tone];
+        *rx_dcs = DCS_CODES[ch->dtcs];
+        break;
+    case T_D_TSQL:
+        *tx_dcs = DCS_CODES[ch->dtcs];
+        *rx_ctcs = CTCSS_TONES[ch->tone];
+        break;
+    }
 
     // Other parameters.
-    *lowpower = ! ch->power;
+    *power = ch->power;
     *wide = ! ch->isnarrow;
-    *scan = 0; // TODO
+    *scan = (*scan_data << ((i & 3) * 2) >> 6) & 3;
     *isam = ch->isam;
-    *duplex = ch->duplex;
+    *step = ch->step;
+    // TODO: name
+
 }
 
 #if 0
 static void setup_channel (int i, double rx_mhz, double tx_mhz,
-    int rq, int tq, int highpower, int wide, int scan, int isam, int duplex)
+    int rq, int tq, int power, int wide, int scan, int isam, int step)
 {
     memory_channel_t *ch = i + (memory_channel_t*) &radio_mem[0x10];
 
@@ -314,37 +388,41 @@ static void setup_channel (int i, double rx_mhz, double tx_mhz,
     ch->txfreq = int_to_bcd ((int) (tx_mhz * 100000.0));
     ch->rxtone = rq;
     ch->txtone = tq;
-    ch->highpower = highpower;
-    ch->narrow = ! wide;
-    ch->noscan = ! scan;
-    ch->noisam = ! isam;
-    ch->noscr = ! duplex;
+    ch->power = power;
+    ch->isnarrow = ! wide;
+    ch->scan = scan;
+    ch->isam = isam;
+    ch->step = step;
 }
 #endif
 
-static void print_offset (FILE *out, int delta)
+static void print_offset (FILE *out, int rx_hz, int tx_hz)
 {
+    int delta = tx_hz - rx_hz;
+
     if (delta == 0) {
-        fprintf (out, " 0      ");
-    } else {
-        if (delta > 0) {
-            fprintf (out, "+");;
-        } else {
-            fprintf (out, "-");;
-            delta = - delta;
-        }
+        fprintf (out, "+0      ");
+    } else if (delta > 0 && delta/50000 <= 255) {
         if (delta % 1000000 == 0)
-            fprintf (out, "%-7u", delta / 1000000);
+            fprintf (out, "+%-7u", delta / 1000000);
         else
-            fprintf (out, "%-7.3f", delta / 1000000.0);
+            fprintf (out, "+%-7.3f", delta / 1000000.0);
+    } else if (delta < 0 && -delta/50000 <= 255) {
+        delta = - delta;
+        if (delta % 1000000 == 0)
+            fprintf (out, "-%-7u", delta / 1000000);
+        else
+            fprintf (out, "-%-7.3f", delta / 1000000.0);
+    } else {
+        // Cross band mode.
+        fprintf (out, " %-7.4f", tx_hz / 1000000.0);
     }
 }
 
 static void print_squelch (FILE *out, int ctcs, int dcs)
 {
     if      (ctcs)    fprintf (out, "%5.1f", ctcs / 10.0);
-    else if (dcs > 0) fprintf (out, "D%03dN", dcs);
-    else if (dcs < 0) fprintf (out, "D%03dI", -dcs);
+    else if (dcs > 0) fprintf (out, "D%03d", dcs);
     else              fprintf (out, "   - ");
 }
 
@@ -355,47 +433,93 @@ static void ft60r_print_config (FILE *out, int verbose)
 {
     int i;
 
-    // Print memory channels.
+    //
+    // Memory channels.
+    //
     fprintf (out, "\n");
     if (verbose) {
         fprintf (out, "# Table of preprogrammed channels.\n");
-        //fprintf (out, "# 1) Channel number: 1-%d\n", NCHAN);
-        //fprintf (out, "# 2) Receive frequency in MHz\n");
-        //fprintf (out, "# 3) Offset of transmit frequency in MHz\n");
-        //fprintf (out, "# 4) Squelch tone for receive, or '-' to disable\n");
-        //fprintf (out, "# 5) Squelch tone for transmit, or '-' to disable\n");
-        //fprintf (out, "# 6) Transmit power: Low, High\n");
-        //fprintf (out, "# 7) Modulation width: Wide, Narrow\n");
-        //fprintf (out, "# 8) Add this channel to scan list\n");
-        //fprintf (out, "# 9) Busy channel lockout\n");
-        //fprintf (out, "# 10) Enable scrambler\n");
+        fprintf (out, "# 1) Channel number: 1-%d\n", NCHAN);
+        fprintf (out, "# 2) Receive frequency in MHz\n");
+        fprintf (out, "# 3) Transmit frequency or offset in MHz\n");
+        fprintf (out, "# 4) Squelch tone for receive, or '-' to disable\n");
+        fprintf (out, "# 5) Squelch tone for transmit, or '-' to disable\n");
+        fprintf (out, "# 6) Transmit power: High, Mid, Low\n");
+        fprintf (out, "# 7) Modulation: Wide, Narrow, AM\n");
+        fprintf (out, "# 8) Scan mode: +, -, Pref\n");
         //fprintf (out, "#\n");
     }
-    fprintf (out, "Channel Receive  TxOffset R-Squel T-Squel Power FM     Scan AM  Duplex\n");
+    fprintf (out, "Channel Receive  Transmit R-Squel T-Squel Power Modulation Scan\n");
     for (i=0; i<NCHAN; i++) {
         int rx_hz, tx_hz, rx_ctcs, tx_ctcs, rx_dcs, tx_dcs;
-        int lowpower, wide, scan, isam, duplex;
+        int power, wide, scan, isam, step;
 
-        decode_channel (i, &rx_hz, &tx_hz, &rx_ctcs, &tx_ctcs,
-            &rx_dcs, &tx_dcs, &lowpower, &wide, &scan, &isam, &duplex);
+        decode_channel (i, 0x0248, &rx_hz, &tx_hz, &rx_ctcs, &tx_ctcs,
+            &rx_dcs, &tx_dcs, &power, &wide, &scan, &isam, &step);
         if (rx_hz == 0) {
             // Channel is disabled
             continue;
         }
 
         fprintf (out, "%5d   %8.4f ", i+1, rx_hz / 1000000.0);
-        print_offset (out, tx_hz - rx_hz);
+        print_offset (out, rx_hz, tx_hz);
         fprintf (out, " ");
         print_squelch (out, rx_ctcs, rx_dcs);
         fprintf (out, "   ");
         print_squelch (out, tx_ctcs, tx_dcs);
 
-        fprintf (out, "   %-4s  %-6s %-4s %-3s %s\n", lowpower ? "Low" : "High",
-            wide ? "Wide" : "Narrow", scan ? "+" : "-",
-            isam ? "+" : "-", duplex ? "+" : "-");
+        fprintf (out, "   %-4s  %-10s %s\n", POWER_NAME[power],
+            isam ? "AM" : wide ? "Wide" : "Narrow", SCAN_NAME[scan]);
     }
     //if (verbose)
     //    print_squelch_tones (out);
+
+    //
+    // Home channels.
+    //
+    fprintf (out, "\n");
+    fprintf (out, "Home    Receive  Transmit R-Squel T-Squel Power Modulation\n");
+    for (i=0; i<5; i++) {
+        int rx_hz, tx_hz, rx_ctcs, tx_ctcs, rx_dcs, tx_dcs;
+        int power, wide, scan, isam, step;
+
+        decode_channel (i, 0x01c8, &rx_hz, &tx_hz, &rx_ctcs, &tx_ctcs,
+            &rx_dcs, &tx_dcs, &power, &wide, &scan, &isam, &step);
+
+        fprintf (out, "%5s   %8.4f ", BAND_NAME[i], rx_hz / 1000000.0);
+        print_offset (out, rx_hz, tx_hz);
+        fprintf (out, " ");
+        print_squelch (out, rx_ctcs, rx_dcs);
+        fprintf (out, "   ");
+        print_squelch (out, tx_ctcs, tx_dcs);
+
+        fprintf (out, "   %-4s  %s\n", POWER_NAME[power],
+            isam ? "AM" : wide ? "Wide" : "Narrow");
+    }
+
+    //
+    // VFO channels.
+    //
+    fprintf (out, "\n");
+    fprintf (out, "VFO     Receive  Transmit R-Squel T-Squel Step  Power Modulation\n");
+    for (i=0; i<5; i++) {
+        int rx_hz, tx_hz, rx_ctcs, tx_ctcs, rx_dcs, tx_dcs;
+        int power, wide, scan, isam, step;
+
+        decode_channel (i, 0x0048, &rx_hz, &tx_hz, &rx_ctcs, &tx_ctcs,
+            &rx_dcs, &tx_dcs, &power, &wide, &scan, &isam, &step);
+
+        fprintf (out, "%5s   %8.4f ", BAND_NAME[i], rx_hz / 1000000.0);
+        print_offset (out, rx_hz, tx_hz);
+        fprintf (out, " ");
+        print_squelch (out, rx_ctcs, rx_dcs);
+        fprintf (out, "   ");
+        print_squelch (out, tx_ctcs, tx_dcs);
+
+        fprintf (out, "   %-5s %-4s  %s\n",
+            STEP_NAME[step], POWER_NAME[power],
+            isam ? "AM" : wide ? "Wide" : "Narrow");
+    }
 }
 
 //
@@ -403,7 +527,7 @@ static void ft60r_print_config (FILE *out, int verbose)
 //
 static void ft60r_read_image (FILE *img, unsigned char *ident)
 {
-    if (fread (&radio_mem[0], 1, 0x6fc8, img) != 0x6fc8) {
+    if (fread (&radio_mem[0], 1, MEMSZ, img) != MEMSZ) {
         fprintf (stderr, "Error reading image data.\n");
         exit (-1);
     }
@@ -415,7 +539,8 @@ static void ft60r_read_image (FILE *img, unsigned char *ident)
 //
 static void ft60r_save_image (FILE *img)
 {
-    fwrite (&radio_mem[0], 1, 0x6fc8, img);
+    memcpy (radio_mem, radio_ident, 8);
+    fwrite (&radio_mem[0], 1, MEMSZ, img);
 }
 
 static void ft60r_parse_parameter (char *param, char *value)
@@ -453,7 +578,10 @@ static int ft60r_parse_header (char *line)
 {
     if (strncasecmp (line, "Channel", 7) == 0)
         return 'C';
-
+    if (strncasecmp (line, "Home", 4) == 0)
+        return 'H';
+    if (strncasecmp (line, "VFO", 7) == 0)
+        return 'V';
     return 0;
 }
 
@@ -466,13 +594,13 @@ static int ft60r_parse_row (int table_id, int first_row, char *line)
 {
     char num_str[256], rxfreq_str[256], offset_str[256], rq_str[256];
     char tq_str[256], power_str[256], wide_str[256], scan_str[256];
-    char isam_str[256], duplex_str[256];
-    int num; // rq, tq, highpower, wide, scan, isam, duplex;
+    char isam_str[256], step_str[256];
+    int num; // rq, tq, power, wide, scan, isam, step;
     //float rx_mhz, txoff_mhz;
 
     if (sscanf (line, "%s %s %s %s %s %s %s %s %s %s",
         num_str, rxfreq_str, offset_str, rq_str, tq_str, power_str,
-        wide_str, scan_str, isam_str, duplex_str) != 10)
+        wide_str, scan_str, isam_str, step_str) != 10)
         return 0;
 
     num = atoi (num_str);
@@ -497,9 +625,11 @@ static int ft60r_parse_row (int table_id, int first_row, char *line)
     tq = encode_squelch (tq_str);
 
     if (strcasecmp ("High", power_str) == 0) {
-        highpower = 1;
+        power = 0;
+    } else if (strcasecmp ("Mid", power_str) == 0) {
+        power = 1;
     } else if (strcasecmp ("Low", power_str) == 0) {
-        highpower = 0;
+        power = 2;
     } else {
         fprintf (stderr, "Bad power level.\n");
         return 0;
@@ -532,12 +662,12 @@ static int ft60r_parse_row (int table_id, int first_row, char *line)
         return 0;
     }
 
-    if (*duplex_str == '+') {
-        duplex = 1;
-    } else if (*duplex_str == '-') {
-        duplex = 0;
+    if (*step_str == '+') {
+        step = 1;
+    } else if (*step_str == '-') {
+        step = 0;
     } else {
-        fprintf (stderr, "Bad duplex flag.\n");
+        fprintf (stderr, "Bad step flag.\n");
         return 0;
     }
 
@@ -549,7 +679,7 @@ static int ft60r_parse_row (int table_id, int first_row, char *line)
         }
     }
     setup_channel (num-1, rx_mhz, rx_mhz + txoff_mhz, rq, tq,
-        highpower, wide, scan, isam, duplex);
+        power, wide, scan, isam, step);
 #endif
     return 1;
 }

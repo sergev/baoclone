@@ -47,6 +47,7 @@ int radio_progress;                     // Read/write progress counter
 
 static radio_device_t *device;          // Device-dependent interface
 static unsigned char image_ident [8];   // Image file: identifier
+static int echo_detected;               // Serial port is in echo mode
 #ifdef MINGW32
 DCB saved_mode;                         // Mode of serial port, Windows
 #else
@@ -193,7 +194,7 @@ void radio_print_version (FILE *out)
 //
 static int try_magic (const unsigned char *magic)
 {
-    unsigned char reply;
+    unsigned char reply[8];
     int magic_len = strlen ((char*) magic);
 
     // Send magic.
@@ -210,13 +211,23 @@ static int try_magic (const unsigned char *magic)
     serial_write (radio_port, magic, magic_len);
 
     // Check response.
-    if (serial_read (radio_port, &reply, 1) != 1) {
+    echo_detected = 0;
+    if (serial_read (radio_port, reply, 1) != 1) {
         if (verbose)
             fprintf (stderr, "Radio did not respond.\n");
         return 0;
     }
-    if (reply != 0x06) {
-        fprintf (stderr, "Bad response: %02x\n", reply);
+    if (reply[0] != 0x06) {
+        if (reply[0] == magic[0] &&
+            serial_read (radio_port, reply+1, magic_len-1) == magic_len-1 &&
+            memcmp (reply, magic, magic_len) == 0)
+        {
+            echo_detected = 1;
+            if (verbose)
+                fprintf (stderr, "Echo detected.\n");
+            return 0;
+        }
+        fprintf (stderr, "Bad response: %02x\n", reply[0]);
         return 0;
     }
 
@@ -234,12 +245,12 @@ static int try_magic (const unsigned char *magic)
 
     // Enter clone mode.
     serial_write (radio_port, "\x06", 1);
-    if (serial_read (radio_port, &reply, 1) != 1) {
+    if (serial_read (radio_port, reply, 1) != 1) {
         fprintf (stderr, "Radio refused to clone.\n");
         return 0;
     }
-    if (reply != 0x06) {
-        fprintf (stderr, "Radio refused to clone: %02x\n", reply);
+    if (reply[0] != 0x06) {
+        fprintf (stderr, "Radio refused to clone: %02x\n", reply[0]);
         return 0;
     }
     return 1;
@@ -275,16 +286,24 @@ void radio_connect (char *port_name)
             print_hex (radio_ident, 8);
             printf ("\n");
         }
+        if (echo_detected) {
+echo:       device = &radio_ft60r;      // Yaesu FT-60R
+            break;
+        }
         mdelay (500);
         if (try_magic (UV5R_MODEL_291)) {
             device = &radio_uv5r;       // Baofeng UV-5R, UV-5RA
             break;
         }
+        if (echo_detected)
+            goto echo;
         mdelay (500);
         if (try_magic (UV5R_MODEL_AGED)) {
             device = &radio_uv5r_aged;  // Baofeng UV-5R with old firmware
             break;
         }
+        if (echo_detected)
+            goto echo;
         mdelay (500);
     }
     printf ("Detected %s.\n", device->name);
