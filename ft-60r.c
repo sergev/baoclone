@@ -33,8 +33,20 @@
 #include "radio.h"
 #include "util.h"
 
-#define NCHAN 1000
-#define MEMSZ 0x6fc8
+#define NCHAN           1000
+#define MEMSZ           0x6fc8
+
+#define OFFSET_VFO      0x0048
+#define OFFSET_HOME     0x01c8
+#define OFFSET_CHANNELS 0x0248
+#define OFFSET_PMS      0x40c8
+#define OFFSET_NAMES    0x4708
+#define OFFSET_BANKS    0x69c8
+#define OFFSET_SCAN     0x6ec8
+
+static const char CHARSET[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ [?]^__|`?$%&-()*+,-,/|;/=>?@";
+#define NCHARS  65
+#define SPACE   36
 
 static const char *BAND_NAME[5] = { "144", "250", "350", "430", "850" };
 
@@ -287,6 +299,14 @@ typedef struct {
     uint8_t     _u5 [3];
 } memory_channel_t;
 
+typedef struct {
+    uint8_t     name[6];
+    uint8_t     _u1       : 7,
+                used      : 1;
+    uint8_t     _u2       : 7,
+                valid     : 1;
+} memory_name_t;
+
 #if 0
 80 043000 50 000000 0c 00 0f00 64 000000 // 430.000
 83 044310 50 000000 0c 00 0f00 64 000000 // 443.100 +
@@ -317,26 +337,42 @@ static int decode_banks (int i)
 
     mask = 0;
     for (b=0; b<10; b++) {
-        data = radio_mem [0x69c8 + b * 0x80 + i/8];
+        data = radio_mem [OFFSET_BANKS + b * 0x80 + i/8];
         if ((data >> (i & 7)) & 1)
             mask |= 1 << b;
     }
     return mask;
 }
 
-static void decode_channel (int i, int seek, int *rx_hz, int *tx_hz,
-    int *rx_ctcs, int *tx_ctcs, int *rx_dcs, int *tx_dcs,
-    int *power, int *wide, int *scan, int *isam, int *step, int *banks)
+static void decode_channel (int i, int seek, char *name,
+    int *rx_hz, int *tx_hz, int *rx_ctcs, int *tx_ctcs,
+    int *rx_dcs, int *tx_dcs, int *power, int *wide,
+    int *scan, int *isam, int *step, int *banks)
 {
     memory_channel_t *ch = i + (memory_channel_t*) &radio_mem[seek];
-    unsigned char *scan_data = i/4 + &radio_mem[0x6ec8];
+    int scan_data = radio_mem[OFFSET_SCAN + i/4];
 
     *rx_hz = *tx_hz = *rx_ctcs = *tx_ctcs = *rx_dcs = *tx_dcs = 0;
     *power = *wide = *scan = *isam = *step = 0;
+    if (name)
+        *name = 0;
     if (banks)
         *banks = 0;
-    if (! ch->used && (seek == 0x0248 || seek == 0x40c8))
+    if (! ch->used && (seek == OFFSET_CHANNELS || seek == OFFSET_PMS))
         return;
+
+    // Extract channel name; strip trailing FF's.
+    if (name && seek == OFFSET_CHANNELS) {
+        memory_name_t *nm = i + (memory_name_t*) &radio_mem[OFFSET_NAMES];
+        if (nm->valid && nm->used) {
+            int n, c;
+            for (n=0; n<6; n++) {
+                c = nm->name[n];
+                name[n] = (c < NCHARS) ? CHARSET[c] : SPACE;
+            }
+            name[6] = 0;
+        }
+    }
 
     // Decode channel frequencies.
     *rx_hz = freq_to_hz (ch->rxfreq);
@@ -387,17 +423,16 @@ static void decode_channel (int i, int seek, int *rx_hz, int *tx_hz,
     // Other parameters.
     *power = ch->power;
     *wide = ! ch->isnarrow;
-    *scan = (*scan_data << ((i & 3) * 2) >> 6) & 3;
+    *scan = (scan_data << ((i & 3) * 2) >> 6) & 3;
     *isam = ch->isam;
     *step = ch->step;
-    // TODO: name
 
-    if (seek == 0x0248)
+    if (seek == OFFSET_CHANNELS)
         *banks = decode_banks (i);;
 }
 
 #if 0
-static void setup_channel (int i, double rx_mhz, double tx_mhz,
+static void setup_channel (int i, char *name, double rx_mhz, double tx_mhz,
     int rq, int tq, int power, int wide, int scan, int isam, int step, int banks)
 {
     memory_channel_t *ch = i + (memory_channel_t*) &radio_mem[0x10];
@@ -412,6 +447,9 @@ static void setup_channel (int i, double rx_mhz, double tx_mhz,
     ch->isam = isam;
     ch->step = step;
     // TODO: banks
+
+    // TODO: Copy channel name.
+    strncpy ((char*) &radio_mem[0x1000 + i*16], name, 7);
 }
 #endif
 
@@ -485,19 +523,20 @@ static void ft60r_print_config (FILE *out, int verbose)
         fprintf (out, "# 8) Scan mode: +, -, Pref\n");
         //fprintf (out, "#\n");
     }
-    fprintf (out, "Channel Receive  Transmit R-Squel T-Squel Power Modulation Scan Banks\n");
+    fprintf (out, "Channel Name    Receive  Transmit R-Squel T-Squel Power Modulation Scan Banks\n");
     for (i=0; i<NCHAN; i++) {
         int rx_hz, tx_hz, rx_ctcs, tx_ctcs, rx_dcs, tx_dcs;
         int power, wide, scan, isam, step, banks;
+        char name[17];
 
-        decode_channel (i, 0x0248, &rx_hz, &tx_hz, &rx_ctcs, &tx_ctcs,
+        decode_channel (i, OFFSET_CHANNELS, name, &rx_hz, &tx_hz, &rx_ctcs, &tx_ctcs,
             &rx_dcs, &tx_dcs, &power, &wide, &scan, &isam, &step, &banks);
         if (rx_hz == 0) {
             // Channel is disabled
             continue;
         }
 
-        fprintf (out, "%5d   %8.4f ", i+1, rx_hz / 1000000.0);
+        fprintf (out, "%5d   %-7s %8.4f ", i+1, name, rx_hz / 1000000.0);
         print_offset (out, rx_hz, tx_hz);
         fprintf (out, " ");
         print_squelch (out, rx_ctcs, rx_dcs);
@@ -520,9 +559,9 @@ static void ft60r_print_config (FILE *out, int verbose)
         int lower_hz, upper_hz, tx_hz, rx_ctcs, tx_ctcs, rx_dcs, tx_dcs;
         int power, wide, scan, isam, step;
 
-        decode_channel (i*2, 0x40c8, &lower_hz, &tx_hz, &rx_ctcs, &tx_ctcs,
+        decode_channel (i*2, OFFSET_PMS, 0, &lower_hz, &tx_hz, &rx_ctcs, &tx_ctcs,
             &rx_dcs, &tx_dcs, &power, &wide, &scan, &isam, &step, 0);
-        decode_channel (i*2+1, 0x40c8, &upper_hz, &tx_hz, &rx_ctcs, &tx_ctcs,
+        decode_channel (i*2+1, OFFSET_PMS, 0, &upper_hz, &tx_hz, &rx_ctcs, &tx_ctcs,
             &rx_dcs, &tx_dcs, &power, &wide, &scan, &isam, &step, 0);
         if (lower_hz == 0 && upper_hz == 0)
             continue;
@@ -548,7 +587,7 @@ static void ft60r_print_config (FILE *out, int verbose)
         int rx_hz, tx_hz, rx_ctcs, tx_ctcs, rx_dcs, tx_dcs;
         int power, wide, scan, isam, step;
 
-        decode_channel (i, 0x01c8, &rx_hz, &tx_hz, &rx_ctcs, &tx_ctcs,
+        decode_channel (i, OFFSET_HOME, 0, &rx_hz, &tx_hz, &rx_ctcs, &tx_ctcs,
             &rx_dcs, &tx_dcs, &power, &wide, &scan, &isam, &step, 0);
 
         fprintf (out, "%5s   %8.4f ", BAND_NAME[i], rx_hz / 1000000.0);
@@ -561,17 +600,19 @@ static void ft60r_print_config (FILE *out, int verbose)
         fprintf (out, "   %-4s  %s\n", POWER_NAME[power],
             isam ? "AM" : wide ? "Wide" : "Narrow");
     }
-#if 0
+
     //
     // VFO channels.
+    // Not much sense to store this to the configuration file.
     //
+#if 0
     fprintf (out, "\n");
     fprintf (out, "VFO     Receive  Transmit R-Squel T-Squel Step  Power Modulation\n");
     for (i=0; i<5; i++) {
         int rx_hz, tx_hz, rx_ctcs, tx_ctcs, rx_dcs, tx_dcs;
         int power, wide, scan, isam, step;
 
-        decode_channel (i, 0x0048, &rx_hz, &tx_hz, &rx_ctcs, &tx_ctcs,
+        decode_channel (i, OFFSET_VFO, &rx_hz, &tx_hz, &rx_ctcs, &tx_ctcs,
             &rx_dcs, &tx_dcs, &power, &wide, &scan, &isam, &step, 0);
 
         fprintf (out, "%5s   %8.4f ", BAND_NAME[i], rx_hz / 1000000.0);
@@ -637,36 +678,21 @@ static int is_valid_frequency (int mhz)
 #endif
 
 //
-// Parse table header.
-// Return table id, or 0 in case of error.
-//
-static int ft60r_parse_header (char *line)
-{
-    if (strncasecmp (line, "Channel", 7) == 0)
-        return 'C';
-    if (strncasecmp (line, "Home", 4) == 0)
-        return 'H';
-    if (strncasecmp (line, "PMS", 3) == 0)
-        return 'P';
-    return 0;
-}
-
-//
 // Parse one line of table data.
 // Start_flag is 1 for the first table row.
 // Return 0 on failure.
 //
-static int ft60r_parse_row (int table_id, int first_row, char *line)
+static int parse_channel (int first_row, char *line)
 {
-    char num_str[256], rxfreq_str[256], offset_str[256], rq_str[256];
-    char tq_str[256], power_str[256], wide_str[256], scan_str[256];
-    char isam_str[256], step_str[256];
+    char num_str[256], name_str[256], rxfreq_str[256], offset_str[256];
+    char rq_str[256], tq_str[256], power_str[256], wide_str[256];
+    char scan_str[256], banks_str[256];
     int num; // rq, tq, power, wide, scan, isam, step;
     //float rx_mhz, txoff_mhz;
 
     if (sscanf (line, "%s %s %s %s %s %s %s %s %s %s",
-        num_str, rxfreq_str, offset_str, rq_str, tq_str, power_str,
-        wide_str, scan_str, isam_str, step_str) != 10)
+        num_str, name_str, rxfreq_str, offset_str, rq_str, tq_str, power_str,
+        wide_str, scan_str, banks_str) != 10)
         return 0;
 
     num = atoi (num_str);
@@ -674,6 +700,7 @@ static int ft60r_parse_row (int table_id, int first_row, char *line)
         fprintf (stderr, "Bad channel number.\n");
         return 0;
     }
+    // TODO
 #if 0
     if (sscanf (rxfreq_str, "%f", &rx_mhz) != 1 ||
         ! is_valid_frequency (rx_mhz))
@@ -719,21 +746,12 @@ static int ft60r_parse_row (int table_id, int first_row, char *line)
         return 0;
     }
 
-    if (*isam_str == '+') {
-        isam = 1;
-    } else if (*isam_str == '-') {
-        isam = 0;
+    if (*banks_str == '+') {
+        banks = 1;
+    } else if (*banks_str == '-') {
+        banks = 0;
     } else {
-        fprintf (stderr, "Bad BCL flag.\n");
-        return 0;
-    }
-
-    if (*step_str == '+') {
-        step = 1;
-    } else if (*step_str == '-') {
-        step = 0;
-    } else {
-        fprintf (stderr, "Bad step flag.\n");
+        fprintf (stderr, "Bad banks mask.\n");
         return 0;
     }
 
@@ -744,10 +762,47 @@ static int ft60r_parse_row (int table_id, int first_row, char *line)
             setup_channel (i, 0, 0, 0, 0, 1, 1, 0, 0, 0);
         }
     }
-    setup_channel (num-1, rx_mhz, rx_mhz + txoff_mhz, rq, tq,
-        power, wide, scan, isam, step);
+    setup_channel (num-1, name_str, rx_mhz, rx_mhz + txoff_mhz,
+        rq, tq, power, wide, scan, isam, step);
 #endif
     return 1;
+}
+
+static int parse_home (int first_row, char *line)
+{
+    // TODO
+    return 1;
+}
+
+static int parse_pms (int first_row, char *line)
+{
+    // TODO
+    return 1;
+}
+
+//
+// Parse table header.
+// Return table id, or 0 in case of error.
+//
+static int ft60r_parse_header (char *line)
+{
+    if (strncasecmp (line, "Channel", 7) == 0)
+        return 'C';
+    if (strncasecmp (line, "Home", 4) == 0)
+        return 'H';
+    if (strncasecmp (line, "PMS", 3) == 0)
+        return 'P';
+    return 0;
+}
+
+static int ft60r_parse_row (int table_id, int first_row, char *line)
+{
+    switch (table_id) {
+    case 'C': return parse_channel (first_row, line);
+    case 'H': return parse_home (first_row, line);
+    case 'P': return parse_pms (first_row, line);
+    }
+    return 0;
 }
 
 //
