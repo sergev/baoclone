@@ -405,7 +405,7 @@ static void bf888s_print_config (FILE *out, int verbose)
             bcl ? "+" : "-", scramble ? "+" : "-");
     }
     if (verbose)
-        print_squelch_tones (out);
+        print_squelch_tones (out, 0);
 
     // Print other settings.
     settings_t *mode = (settings_t*) &radio_mem[0x2b0];

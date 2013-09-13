@@ -603,7 +603,7 @@ static void uvb5_print_config (FILE *out, int verbose)
             bcl ? "+" : "-", revfreq ? "+" : "-", compander ? "+" : "-");
     }
     if (verbose)
-        print_squelch_tones (out);
+        print_squelch_tones (out, 0);
 
     // Print frequency mode VFO settings.
     int hz, offset, rx_ctcs, tx_ctcs, rx_dcs, tx_dcs;

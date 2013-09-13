@@ -722,7 +722,7 @@ static void print_config (FILE *out, int verbose, int is_aged)
             sgroup, PTTID_NAME[pttid]);
     }
     if (verbose)
-        print_squelch_tones (out);
+        print_squelch_tones (out, 0);
 
     // Print frequency mode VFO settings.
     int band, hz, offset, rx_ctcs, tx_ctcs, rx_dcs, tx_dcs;

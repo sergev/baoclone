@@ -54,8 +54,16 @@ static const char *POWER_NAME[] = { "High", "Med", "Low", "??" };
 
 static const char *SCAN_NAME[] = { "+", "Pref", "-", "??" };
 
-//static const char *STEP_NAME[] = { "5.0", "10.0", "12.5", "15.0",
-//                                   "20.0", "25.0", "50.0", "100.0" };
+enum {
+    STEP_5 = 0,
+    STEP_10,
+    STEP_12_5,
+    STEP_15,
+    STEP_20,
+    STEP_25,
+    STEP_50,
+    STEP_100,
+};
 
 //
 // Print a generic information about the device.
@@ -114,6 +122,7 @@ static int read_block (int fd, int start, unsigned char *data, int nbytes)
 //
 static void write_block (int fd, int start, const unsigned char *data, int nbytes)
 {
+    // TODO
 #if 0
     unsigned char cmd[4], reply;
 
@@ -210,62 +219,23 @@ again:
 //
 static void ft60r_upload()
 {
-    int addr;
+    int addr, sum;
 
     write_block (radio_port, 0, radio_ident, 8);
     for (addr=8; addr<MEMSZ; addr+=64)
         write_block (radio_port, addr, &radio_mem[addr], 64);
-    // TODO: checksum
+
+    // Compute the checksum.
+    sum = 0;
+    for (addr=0; addr<8; addr++)
+        sum += radio_ident[addr];
+    for (addr=8; addr<MEMSZ; addr++)
+        sum += radio_mem[addr];
+    radio_mem[MEMSZ] = sum;
+
+    // Send a checksum.
     write_block (radio_port, MEMSZ, &radio_mem[MEMSZ], 1);
 }
-
-#if 0
-//
-// Convert squelch string to tone value in BCD format.
-// Four possible formats:
-// nnn.n - CTCSS frequency
-// DnnnN - DCS normal
-// DnnnI - DCS inverted
-// '-'   - Disabled
-//
-static int encode_squelch (char *str)
-{
-    unsigned val;
-
-    if (*str == 'D' || *str == 'd') {
-        // DCS tone
-        char *e;
-        val = strtol (++str, &e, 10);
-        if (val < 1 || val >= 999)
-            return 0;
-
-        if (*e == 'N' || *e == 'n') {
-            val += 8000;
-        } else if (*e == 'I' || *e == 'i') {
-            val += 12000;
-        } else {
-            return 0;
-        }
-    } else if (*str >= '0' && *str <= '9') {
-        // CTCSS tone
-        float hz;
-        if (sscanf (str, "%f", &hz) != 1)
-            return 0;
-
-        // Round to integer.
-        val = hz * 10.0 + 0.5;
-    } else {
-        // Disabled
-        return 0;
-    }
-
-    int bcd = ((val / 1000) % 16) << 12 |
-              ((val / 100)  % 10) << 8 |
-              ((val / 10)   % 10) << 4 |
-              (val          % 10);
-    return bcd;
-}
-#endif
 
 typedef struct {
     uint8_t     duplex    : 4,  // Repeater mode
@@ -307,18 +277,110 @@ typedef struct {
                 valid     : 1;
 } memory_name_t;
 
-#if 0
-80 043000 50 000000 0c 00 0f00 64 000000 // 430.000
-83 044310 50 000000 0c 00 0f00 64 000000 // 443.100 +
-83 844312 50 000000 0c 00 0f00 64 000000 // 443.125 +
-80 c16293 21 000000 0c 00 0f00 0c 000000 // 162.9375 tone 100.0
-#endif
+//
+// Convert squelch string to CTCSS tone index.
+// Return -1 on error.
+// Format: nnn.n
+//
+static int encode_tone (char *str)
+{
+    unsigned val;
+
+    // CTCSS tone
+    float hz;
+    if (sscanf (str, "%f", &hz) != 1)
+        return -1;
+
+    // Round to integer.
+    val = hz * 10.0 + 0.5;
+    if (val < 0x0258)
+        return -1;
+
+    // Find a valid index in CTCSS table.
+    int i;
+    for (i=0; i<NCTCSS; i++)
+        if (CTCSS_TONES[i] == val)
+            return i;
+    return -1;
+}
+
+//
+// Convert squelch string to DCS code index.
+// Return -1 on error.
+// Format: Dnnn
+//
+static int encode_dcs (char *str)
+{
+    unsigned val;
+
+    // DCS tone
+    if (sscanf (++str, "%u", &val) != 1)
+        return -1;
+
+    // Find a valid index in DCS table.
+    int i;
+    for (i=0; i<NDCS; i++)
+        if (DCS_CODES[i] == val)
+            return i;
+    return -1;
+}
+
+//
+// Convert squelch strings to tmode value, tone index and dtcs index.
+//
+static int encode_squelch (char *rx, char *tx, int *tone, int *dtcs)
+{
+    int rx_tone = -1, tx_tone = -1, rx_dcs = -1, tx_dcs = -1, rx_rev = 0;
+
+    if (*rx == 'D' || *rx == 'd') {             // Receive DCS code
+        rx_dcs = encode_dcs (rx);
+    } else if (*rx >= '0' && *rx <= '9') {      // Receive CTCSS tone
+        rx_tone = encode_tone (rx);
+    } else if (*rx == '-' && rx[1] >= '0' && rx[1] <= '9') {
+        rx_tone = encode_tone (rx+1);
+        rx_rev = 1;
+    }
+    if (*tx == 'D' || *tx == 'd') {             // Transmit DCS code
+        tx_dcs = encode_dcs (tx);
+    } else if (*tx >= '0' && *tx <= '9') {      // Transmit CTCSS tone
+        tx_tone = encode_tone (tx);
+    }
+
+    // Encode tmode.
+    *tone = 0;
+    *dtcs = 0;
+    if (rx_dcs >= 0) {
+        *dtcs = rx_dcs;
+        if (tx_tone >= 0) {
+            *tone = tx_tone;
+            return T_T_DCS;
+        }
+        return T_DTCS;
+    }
+    if (tx_dcs >= 0) {
+        *dtcs = tx_dcs;
+        if (rx_tone >= 0) {
+            *tone = rx_tone;
+            return T_D_TSQL;
+        }
+        return T_D;
+    }
+    if (tx_tone >= 0) {
+        *tone = tx_tone;
+        if (rx_tone < 0)
+            return T_TONE;
+        if (rx_rev)
+            return T_TSQL_REV;
+        return T_TSQL;
+    }
+    return T_OFF;
+}
 
 //
 // Convert 32-bit value from binary coded decimal
 // to integer format (8 digits).
 //
-int freq_to_hz (uint8_t *bcd)
+static int freq_to_hz (uint8_t *bcd)
 {
     int hz;
 
@@ -329,6 +391,16 @@ int freq_to_hz (uint8_t *bcd)
          (bcd[2]       & 15) * 10000;
     hz += (bcd[0] >> 6) * 2500;
     return hz;
+}
+
+static void hz_to_freq (int hz, uint8_t *bcd)
+{
+    bcd[0] = (hz / 2500      % 4)  << 6 |
+             (hz / 100000000 % 10);
+    bcd[1] = (hz / 10000000  % 10) << 4 |
+             (hz / 1000000   % 10);
+    bcd[2] = (hz / 100000    % 10) << 4 |
+             (hz / 10000     % 10);
 }
 
 static int decode_banks (int i)
@@ -368,8 +440,15 @@ static void decode_channel (int i, int seek, char *name,
             int n, c;
             for (n=0; n<6; n++) {
                 c = nm->name[n];
-                name[n] = (c < NCHARS) ? CHARSET[c] : SPACE;
+                name[n] = (c < NCHARS) ? CHARSET[c] : ' ';
+
+                // Replace spaces by underscore.
+                if (name[n] == ' ')
+                    name[n] = '_';
             }
+            // Strip trailing spaces.
+            for (n=5; n>=0 && name[n]=='_'; n--)
+                name[n] = 0;
             name[6] = 0;
         }
     }
@@ -431,27 +510,50 @@ static void decode_channel (int i, int seek, char *name,
         *banks = decode_banks (i);;
 }
 
-#if 0
 static void setup_channel (int i, char *name, double rx_mhz, double tx_mhz,
-    int rq, int tq, int power, int wide, int scan, int isam, int step, int banks)
+    int tmode, int tone, int dtcs, int power, int wide, int scan, int isam, int step, int banks)
 {
-    memory_channel_t *ch = i + (memory_channel_t*) &radio_mem[0x10];
+if (rx_mhz) printf ("%5d   %-7s %8.4f %8.4f %u %u %u %u %u %u %u %u %#x\n", i+1, name, rx_mhz, tx_mhz, tmode, tone, dtcs, power, wide, scan, isam, step, banks);
+    memory_channel_t *ch = i + (memory_channel_t*) &radio_mem[OFFSET_CHANNELS];
 
-    ch->rxfreq = int_to_bcd ((int) (rx_mhz * 100000.0));
-    ch->txfreq = int_to_bcd ((int) (tx_mhz * 100000.0));
-    ch->rxtone = rq;
-    ch->txtone = tq;
+    hz_to_freq ((int) (rx_mhz * 100000.0), ch->rxfreq);
+
+    double offset_mhz = tx_mhz - rx_mhz;
+    if (offset_mhz >= 0 && offset_mhz < 256 * 0.05) {
+        ch->duplex = D_POS_OFFSET;
+        ch->offset = (int) (offset_mhz / 0.05 + 0.5);
+        ch->txfreq[0] = ch->txfreq[1] = ch->txfreq[2] = 0;
+
+    } else if (offset_mhz < 0 && offset_mhz > -256 * 0.05) {
+        ch->duplex = D_NEG_OFFSET;
+        ch->offset = (int) (-offset_mhz / 0.05 + 0.5);
+        ch->txfreq[0] = ch->txfreq[1] = ch->txfreq[2] = 0;
+    } else {
+        ch->duplex = D_CROSS_BAND;
+        ch->offset = 0;
+        hz_to_freq ((int) (tx_mhz * 100000.0), ch->txfreq);
+    }
+    ch->used = (rx_mhz > 0);
+    ch->tmode = tmode;
+    ch->tone = tone;
+    ch->dtcs = dtcs;
     ch->power = power;
     ch->isnarrow = ! wide;
-    ch->scan = scan;
     ch->isam = isam;
     ch->step = step;
-    // TODO: banks
+    ch->_u1 = 0;
+    ch->_u2 = 0;
+    ch->_u3 = 0;
+    ch->_u4[0] = ch->_u4[1] = 0;
+    ch->_u5[0] = ch->_u5[1] = ch->_u5[2] = 0;
 
-    // TODO: Copy channel name.
+#if 0
+    // TODO: scan
+    // TODO: banks
+    // TODO: channel name
     strncpy ((char*) &radio_mem[0x1000 + i*16], name, 7);
-}
 #endif
+}
 
 static void print_offset (FILE *out, int rx_hz, int tx_hz)
 {
@@ -536,7 +638,7 @@ static void ft60r_print_config (FILE *out, int verbose)
             continue;
         }
 
-        fprintf (out, "%5d   %-7s %8.4f ", i+1, name, rx_hz / 1000000.0);
+        fprintf (out, "%5d   %-7s %8.4f ", i+1, name[0] ? name : "-", rx_hz / 1000000.0);
         print_offset (out, rx_hz, tx_hz);
         fprintf (out, " ");
         print_squelch (out, rx_ctcs, rx_dcs);
@@ -547,8 +649,8 @@ static void ft60r_print_config (FILE *out, int verbose)
             isam ? "AM" : wide ? "Wide" : "Narrow", SCAN_NAME[scan],
             format_banks (banks));
     }
-    //if (verbose)
-    //    print_squelch_tones (out);
+    if (verbose)
+        print_squelch_tones (out, 1);
 
     //
     // Preferred memory scans.
@@ -605,14 +707,16 @@ static void ft60r_print_config (FILE *out, int verbose)
     // VFO channels.
     // Not much sense to store this to the configuration file.
     //
-#if 0
+#if 1
     fprintf (out, "\n");
     fprintf (out, "VFO     Receive  Transmit R-Squel T-Squel Step  Power Modulation\n");
     for (i=0; i<5; i++) {
         int rx_hz, tx_hz, rx_ctcs, tx_ctcs, rx_dcs, tx_dcs;
         int power, wide, scan, isam, step;
+        static const char *STEP_NAME[] = { "5.0", "10.0", "12.5", "15.0",
+                                           "20.0", "25.0", "50.0", "100.0" };
 
-        decode_channel (i, OFFSET_VFO, &rx_hz, &tx_hz, &rx_ctcs, &tx_ctcs,
+        decode_channel (i, OFFSET_VFO, 0, &rx_hz, &tx_hz, &rx_ctcs, &tx_ctcs,
             &rx_dcs, &tx_dcs, &power, &wide, &scan, &isam, &step, 0);
 
         fprintf (out, "%5s   %8.4f ", BAND_NAME[i], rx_hz / 1000000.0);
@@ -663,7 +767,6 @@ static void ft60r_parse_parameter (char *param, char *value)
     exit(-1);
 }
 
-#if 0
 //
 // Check that the radio does support this frequency.
 //
@@ -675,7 +778,60 @@ static int is_valid_frequency (int mhz)
         return 1;
     return 0;
 }
-#endif
+
+static int default_step (double mhz)
+{
+    static const struct {
+        double min, max;
+        int step;
+    } tab [] = {
+        { 108.000, 137.000, STEP_25   },
+        { 137.000, 144.000, STEP_12_5 },
+        { 144.000, 148.000, STEP_5    },
+        { 148.000, 156.000, STEP_12_5 },
+        { 156.000, 157.450, STEP_25   },
+        { 157.450, 160.600, STEP_12_5 },
+        { 160.600, 160.975, STEP_25   },
+        { 160.975, 161.500, STEP_12_5 },
+        { 161.500, 162.900, STEP_25   },
+        { 162.900, 174.000, STEP_12_5 },
+        { 174.000, 222.000, STEP_50   },
+        { 222.000, 225.000, STEP_5    },
+        { 225.000, 300.000, STEP_12_5 },
+        { 300.000, 336.000, STEP_100  },
+        { 336.000, 420.000, STEP_12_5 },
+        { 420.000, 450.000, STEP_25   },
+        { 450.000, 470.000, STEP_12_5 },
+        { 470.000, 520.000, STEP_50   },
+        { 700.000, 800.000, STEP_50   },
+        { 800.000, 999.990, STEP_12_5 },
+        { -1 },
+    };
+    int i;
+
+    for (i=0; tab[i].min>0; i++) {
+        if (mhz >= tab[i].min && mhz < tab[i].max)
+            return tab[i].step;
+    }
+    return STEP_5;
+}
+
+static int encode_banks (char *str)
+{
+    int mask;
+
+    if (*str == '-')
+        return 0;
+
+    for (mask=0; *str; str++) {
+        if (*str < '0' || *str > '9') {
+            fprintf (stderr, "Bad banks mask = '%s'\n", str);
+            exit(-1);
+        }
+        mask |= 1 << (*str - '0');
+    }
+    return mask;
+}
 
 //
 // Parse one line of table data.
@@ -687,8 +843,8 @@ static int parse_channel (int first_row, char *line)
     char num_str[256], name_str[256], rxfreq_str[256], offset_str[256];
     char rq_str[256], tq_str[256], power_str[256], wide_str[256];
     char scan_str[256], banks_str[256];
-    int num; // rq, tq, power, wide, scan, isam, step;
-    //float rx_mhz, txoff_mhz;
+    int num, tmode, tone, dtcs, power, wide, scan, isam, step, banks;
+    double rx_mhz, tx_mhz;
 
     if (sscanf (line, "%s %s %s %s %s %s %s %s %s %s",
         num_str, name_str, rxfreq_str, offset_str, rq_str, tq_str, power_str,
@@ -700,22 +856,22 @@ static int parse_channel (int first_row, char *line)
         fprintf (stderr, "Bad channel number.\n");
         return 0;
     }
-    // TODO
-#if 0
-    if (sscanf (rxfreq_str, "%f", &rx_mhz) != 1 ||
-        ! is_valid_frequency (rx_mhz))
-    {
+
+    if (sscanf (rxfreq_str, "%lf", &rx_mhz) != 1 ||
+        ! is_valid_frequency (rx_mhz)) {
         fprintf (stderr, "Bad receive frequency.\n");
         return 0;
     }
-    if (sscanf (offset_str, "%f", &txoff_mhz) != 1 ||
-        ! is_valid_frequency (rx_mhz + txoff_mhz))
-    {
-        fprintf (stderr, "Bad transmit offset.\n");
+    if (sscanf (offset_str, "%lf", &tx_mhz) != 1) {
+badtx:  fprintf (stderr, "Bad transmit frequency.\n");
         return 0;
     }
-    rq = encode_squelch (rq_str);
-    tq = encode_squelch (tq_str);
+    if (offset_str[0] == '-' || offset_str[0] == '+')
+        tx_mhz += rx_mhz;
+    if (! is_valid_frequency (tx_mhz))
+        goto badtx;
+
+    tmode = encode_squelch (rq_str, tq_str, &tone, &dtcs);
 
     if (strcasecmp ("High", power_str) == 0) {
         power = 0;
@@ -730,41 +886,42 @@ static int parse_channel (int first_row, char *line)
 
     if (strcasecmp ("Wide", wide_str) == 0) {
         wide = 1;
+        isam = 0;
     } else if (strcasecmp ("Narrow", wide_str) == 0) {
         wide = 0;
+        isam = 0;
+    } else if (strcasecmp ("AM", wide_str) == 0) {
+        wide = 1;
+        isam = 1;
     } else {
         fprintf (stderr, "Bad modulation width.\n");
         return 0;
     }
 
     if (*scan_str == '+') {
+        scan = 0;
+    } else if (strcasecmp ("Pref", scan_str) == 0) {
         scan = 1;
     } else if (*scan_str == '-') {
-        scan = 0;
+        scan = 2;
     } else {
         fprintf (stderr, "Bad scan flag.\n");
         return 0;
     }
 
-    if (*banks_str == '+') {
-        banks = 1;
-    } else if (*banks_str == '-') {
-        banks = 0;
-    } else {
-        fprintf (stderr, "Bad banks mask.\n");
-        return 0;
-    }
+    step = default_step (rx_mhz);
+    banks = encode_banks (banks_str);
 
     if (first_row) {
         // On first entry, erase the channel table.
         int i;
         for (i=0; i<NCHAN; i++) {
-            setup_channel (i, 0, 0, 0, 0, 1, 1, 0, 0, 0);
+            setup_channel (i, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0);
         }
     }
-    setup_channel (num-1, name_str, rx_mhz, rx_mhz + txoff_mhz,
-        rq, tq, power, wide, scan, isam, step);
-#endif
+
+    setup_channel (num-1, name_str, rx_mhz, tx_mhz,
+        tmode, tone, dtcs, power, wide, scan, isam, step, banks);
     return 1;
 }
 

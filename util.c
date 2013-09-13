@@ -290,7 +290,7 @@ void print_options (FILE *out, const char **tab, int num, const char *info)
 //
 // Print list of all squelch tones.
 //
-void print_squelch_tones (FILE *out)
+void print_squelch_tones (FILE *out, int normal_only)
 {
     int i;
 
@@ -302,14 +302,16 @@ void print_squelch_tones (FILE *out)
             fprintf (out, "\n#");
     }
     for (i=0; i<NDCS; i++) {
-        fprintf (out, " D%03dN", DCS_CODES[i]);
+        fprintf (out, " D%03d%s", DCS_CODES[i], normal_only ? "" : "N");
         if ((i + 3) % 12 == 0)
             fprintf (out, "\n#");
     }
-    for (i=0; i<NDCS; i++) {
-        fprintf (out, " D%03dI", DCS_CODES[i]);
-        if ((i + 11) % 12 == 0)
-            fprintf (out, "\n#");
+    if (! normal_only) {
+        for (i=0; i<NDCS; i++) {
+            fprintf (out, " D%03dI", DCS_CODES[i]);
+            if ((i + 11) % 12 == 0)
+                fprintf (out, "\n#");
+        }
     }
     fprintf (out, "\n");
 }
