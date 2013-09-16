@@ -33,9 +33,16 @@
 #ifdef MINGW32
 #   include <windows.h>
 #else
+#   include <termios.h>
 #   include <sys/stat.h>
 #endif
 #include "util.h"
+
+#ifdef MINGW32
+static DCB saved_mode;                  // Mode of serial port, Windows
+#else
+static struct termios oldtio, newtio;   // Mode of serial port, Unix
+#endif
 
 //
 // CTCSS tones, Hz*10.
@@ -95,6 +102,137 @@ void print_hex (const unsigned char *data, int len)
     printf ("%02x", (unsigned char) data[0]);
     for (i=1; i<len; i++)
         printf ("-%02x", (unsigned char) data[i]);
+}
+
+//
+// Open the serial port.
+//
+int serial_open (char *portname)
+{
+#ifdef MINGW32
+    HANDLE fd;
+    DCB new_mode;
+    COMMTIMEOUTS timo;
+
+    /* Open port */
+    fd = CreateFile (portname, GENERIC_READ | GENERIC_WRITE,
+        0, 0, OPEN_EXISTING, 0, 0);
+    if (fd == INVALID_HANDLE_VALUE) {
+        fprintf (stderr, "%s: Cannot open\n", portname);
+        exit (-1);
+    }
+
+    /* Set serial attributes */
+    memset (&saved_mode, 0, sizeof(saved_mode));
+    if (! GetCommState (fd, &saved_mode)) {
+        fprintf (stderr, "%s: Cannot get state\n", portname);
+        exit (-1);
+    }
+
+    new_mode = saved_mode;
+
+    new_mode.BaudRate = CBR_9600;
+    new_mode.ByteSize = 8;
+    new_mode.StopBits = ONESTOPBIT;
+    new_mode.Parity = 0;
+    new_mode.fParity = FALSE;
+    new_mode.fOutX = FALSE;
+    new_mode.fInX = FALSE;
+    new_mode.fOutxCtsFlow = FALSE;
+    new_mode.fOutxDsrFlow = FALSE;
+    new_mode.fRtsControl = RTS_CONTROL_DISABLE;
+    new_mode.fNull = FALSE;
+    new_mode.fAbortOnError = FALSE;
+    new_mode.fBinary = TRUE;
+    if (! SetCommState (fd, &new_mode)) {
+        fprintf (stderr, "%s: Cannot set state\n", portname);
+        exit (-1);
+    }
+
+    timo.ReadIntervalTimeout = 0;
+    timo.ReadTotalTimeoutMultiplier = 0;
+    timo.ReadTotalTimeoutConstant = 200;
+    timo.WriteTotalTimeoutMultiplier = 1;
+    timo.WriteTotalTimeoutConstant = 1000;
+    SetCommTimeouts (fd, &timo);
+
+    // Flush received data pending on the port.
+    PurgeComm ((HANDLE) radio_port, PURGE_RXCLEAR);
+    return (int) fd;
+#else
+    int fd;
+
+    // Use non-block flag to ignore carrier (DCD).
+    fd = open (portname, O_RDWR | O_NOCTTY | O_NONBLOCK);
+    if (fd < 0) {
+        perror (portname);
+        exit (-1);
+    }
+
+    // Get terminal modes.
+    tcgetattr (fd, &oldtio);
+    newtio = oldtio;
+
+    newtio.c_cflag &= ~CSIZE;
+    newtio.c_cflag |= CS8;              // 8 data bits
+    newtio.c_cflag |= CLOCAL | CREAD;   // enable receiver, set local mode
+    newtio.c_cflag &= ~PARENB;          // no parity
+    newtio.c_cflag &= ~CSTOPB;          // 1 stop bit
+    newtio.c_cflag &= ~CRTSCTS;         // no h/w handshake
+    newtio.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);  // raw input
+    newtio.c_oflag &= ~OPOST;           // raw output
+    newtio.c_iflag &= ~IXON;            // software flow control disabled
+    newtio.c_iflag &= ~ICRNL;           // do not translate CR to NL
+
+    cfsetispeed(&newtio, B9600);        // Set baud rate.
+    cfsetospeed(&newtio, B9600);
+
+    // Set terminal modes.
+    tcsetattr (fd, TCSANOW, &newtio);
+
+    // Clear the non-block flag.
+    int flags = fcntl (fd, F_GETFL, 0);
+    if (flags < 0) {
+        perror("F_GETFL");
+        exit (-1);
+    }
+    flags &= ~O_NONBLOCK;
+    if (fcntl (fd, F_SETFL, flags) < 0) {
+        perror("F_SETFL");
+        exit (-1);
+    }
+
+    // Flush received data pending on the port.
+    tcflush (fd, TCIFLUSH);
+    return fd;
+#endif
+}
+
+//
+// Purge all received data.
+//
+void serial_flush (int fd)
+{
+#ifdef MINGW32
+    PurgeComm ((HANDLE) fd, PURGE_RXCLEAR);
+#else
+    tcflush (fd, TCIFLUSH);
+#endif
+}
+
+//
+// Close the serial port.
+//
+void serial_close (int fd)
+{
+    // Restore the port mode.
+#ifdef MINGW32
+    SetCommState ((HANDLE) fd, &saved_mode);
+    CloseHandle ((HANDLE) fd);
+#else
+    tcsetattr (fd, TCSANOW, &oldtio);
+    close (fd);
+#endif
 }
 
 //

@@ -74,7 +74,7 @@ static void ft60r_print_version (FILE *out)
 }
 
 //
-// Read block of data, up to 8 bytes.
+// Read block of data, up to 64 bytes.
 // When start==0, return non-zero on success or 0 when empty.
 // When start!=0, halt the program on any error.
 //
@@ -117,33 +117,32 @@ static int read_block (int fd, int start, unsigned char *data, int nbytes)
 }
 
 //
-// Write block of data, up to 8 bytes.
+// Write block of data, up to 64 bytes.
 // Halt the program on any error.
 //
 static void write_block (int fd, int start, const unsigned char *data, int nbytes)
 {
-    // TODO
-#if 0
-    unsigned char cmd[4], reply;
+    unsigned char reply[64];
+    int len;
 
-    // Send command.
-    cmd[0] = 'W';
-    cmd[1] = start >> 8;
-    cmd[2] = start;
-    cmd[3] = nbytes;
-    serial_write (fd, cmd, 4);
     serial_write (fd, data, nbytes);
 
+    // Get echo.
+    len = serial_read (fd, reply, nbytes);
+    if (len != nbytes) {
+        fprintf (stderr, "Echo for block 0x%04x: got only %d bytes.\n", start, len);
+        exit(-1);
+    }
+
     // Get acknowledge.
-    if (serial_read (fd, &reply, 1) != 1) {
+    if (serial_read (fd, reply, 1) != 1) {
         fprintf (stderr, "No acknowledge after block 0x%04x.\n", start);
         exit(-1);
     }
-    if (reply != 0x06) {
-        fprintf (stderr, "Bad acknowledge after block 0x%04x: %02x\n", start, reply);
+    if (reply[0] != 0x06) {
+        fprintf (stderr, "Bad acknowledge after block 0x%04x: %02x\n", start, reply[0]);
         exit(-1);
     }
-
     if (verbose) {
         printf ("# Write 0x%04x: ", start);
         print_hex (data, nbytes);
@@ -155,7 +154,6 @@ static void write_block (int fd, int start, const unsigned char *data, int nbyte
             fflush (stderr);
         }
     }
-#endif
 }
 
 //
@@ -220,6 +218,25 @@ again:
 static void ft60r_upload()
 {
     int addr, sum;
+    char buf[80];
+
+    if (verbose)
+        fprintf (stderr, "\nPlease follow the procedure:\n");
+    else
+        fprintf (stderr, "please follow the procedure.\n");
+    fprintf (stderr, "\n");
+    fprintf (stderr, "1. Power Off the FT60.\n");
+    fprintf (stderr, "2. Hold down the MONI switch and Power On the FT60.\n");
+    fprintf (stderr, "3. Rotate the right DIAL knob to select F8 CLONE.\n");
+    fprintf (stderr, "4. Briefly press the [F/W] key. The display should go blank then show CLONE.\n");
+    fprintf (stderr, "5. Press and hold the MONI switch until the radio starts to receive.\n");
+    fprintf (stderr, "5. Press <Enter> to continue.\n");
+    fprintf (stderr, "-- Or enter ^C to abort the memory write.\n");
+    fprintf (stderr, "\n");
+    fprintf (stderr, "Press <Enter> to continue: ");
+    fflush (stderr);
+    serial_flush (radio_port);
+    fgets (buf, sizeof(buf), stdin);
 
     write_block (radio_port, 0, radio_ident, 8);
     for (addr=8; addr<MEMSZ; addr+=64)
@@ -416,6 +433,82 @@ static int decode_banks (int i)
     return mask;
 }
 
+static int setup_banks (int i, int mask)
+{
+    int b;
+    unsigned char *data;
+
+    for (b=0; b<10; b++) {
+        data = &radio_mem [OFFSET_BANKS + b * 0x80 + i/8];
+        if ((mask >> b) & 1)
+            *data |= 1 << (i & 7);
+        else
+            *data &= ~(1 << (i & 7));
+    }
+    return mask;
+}
+
+//
+// Extract channel name; strip trailing FF's.
+//
+static void decode_name (int i, char *name)
+{
+    memory_name_t *nm = i + (memory_name_t*) &radio_mem[OFFSET_NAMES];
+
+    if (nm->valid && nm->used) {
+        int n, c;
+        for (n=0; n<6; n++) {
+            c = nm->name[n];
+            name[n] = (c < NCHARS) ? CHARSET[c] : ' ';
+
+            // Replace spaces by underscore.
+            if (name[n] == ' ')
+                name[n] = '_';
+        }
+        // Strip trailing spaces.
+        for (n=5; n>=0 && name[n]=='_'; n--)
+            name[n] = 0;
+        name[6] = 0;
+    }
+}
+
+static int encode_char (int c)
+{
+    int i;
+
+    // Replace underscore by space.
+    if (c == '_')
+        c = ' ';
+    for (i=0; i<NCHARS; i++)
+        if (c == CHARSET[i])
+            return i;
+    return SPACE;
+}
+
+static void encode_name (int i, char *name)
+{
+    memory_name_t *nm = i + (memory_name_t*) &radio_mem[OFFSET_NAMES];
+    int n;
+
+    if (name && *name && *name != '-') {
+        // Setup channel name.
+        nm->valid = 1;
+        nm->used = 1;
+        for (n=0; n<6 && name[n]; n++) {
+            nm->name[n] = encode_char (name[n]);
+        }
+        for (; n<6; n++)
+            nm->name[n] = SPACE;
+
+    } else {
+        // Clear name.
+        nm->valid = 0;
+        nm->used = 0;
+        for (n=0; n<6; n++)
+            nm->name[n] = 0xff;
+    }
+}
+
 static void decode_channel (int i, int seek, char *name,
     int *rx_hz, int *tx_hz, int *rx_ctcs, int *tx_ctcs,
     int *rx_dcs, int *tx_dcs, int *power, int *wide,
@@ -433,25 +526,9 @@ static void decode_channel (int i, int seek, char *name,
     if (! ch->used && (seek == OFFSET_CHANNELS || seek == OFFSET_PMS))
         return;
 
-    // Extract channel name; strip trailing FF's.
-    if (name && seek == OFFSET_CHANNELS) {
-        memory_name_t *nm = i + (memory_name_t*) &radio_mem[OFFSET_NAMES];
-        if (nm->valid && nm->used) {
-            int n, c;
-            for (n=0; n<6; n++) {
-                c = nm->name[n];
-                name[n] = (c < NCHARS) ? CHARSET[c] : ' ';
-
-                // Replace spaces by underscore.
-                if (name[n] == ' ')
-                    name[n] = '_';
-            }
-            // Strip trailing spaces.
-            for (n=5; n>=0 && name[n]=='_'; n--)
-                name[n] = 0;
-            name[6] = 0;
-        }
-    }
+    // Extract channel name.
+    if (name && seek == OFFSET_CHANNELS)
+        decode_name (i, name);
 
     // Decode channel frequencies.
     *rx_hz = freq_to_hz (ch->rxfreq);
@@ -507,13 +584,13 @@ static void decode_channel (int i, int seek, char *name,
     *step = ch->step;
 
     if (seek == OFFSET_CHANNELS)
-        *banks = decode_banks (i);;
+        *banks = decode_banks (i);
 }
 
 static void setup_channel (int i, char *name, double rx_mhz, double tx_mhz,
     int tmode, int tone, int dtcs, int power, int wide, int scan, int isam, int step, int banks)
 {
-if (rx_mhz) printf ("%5d   %-7s %8.4f %8.4f %u %u %u %u %u %u %u %u %#x\n", i+1, name, rx_mhz, tx_mhz, tmode, tone, dtcs, power, wide, scan, isam, step, banks);
+//if (rx_mhz) printf ("%5d   %-7s %8.4f %8.4f %u %u %u %u %u %u %u %u %#x\n", i+1, name, rx_mhz, tx_mhz, tmode, tone, dtcs, power, wide, scan, isam, step, banks);
     memory_channel_t *ch = i + (memory_channel_t*) &radio_mem[OFFSET_CHANNELS];
 
     hz_to_freq ((int) (rx_mhz * 100000.0), ch->rxfreq);
@@ -547,12 +624,14 @@ if (rx_mhz) printf ("%5d   %-7s %8.4f %8.4f %u %u %u %u %u %u %u %u %#x\n", i+1,
     ch->_u4[0] = ch->_u4[1] = 0;
     ch->_u5[0] = ch->_u5[1] = ch->_u5[2] = 0;
 
-#if 0
-    // TODO: scan
-    // TODO: banks
-    // TODO: channel name
-    strncpy ((char*) &radio_mem[0x1000 + i*16], name, 7);
-#endif
+    // Scan mode.
+    unsigned char *scan_data = &radio_mem[OFFSET_SCAN + i/4];
+    int scan_shift = (i & 3) * 2;
+    *scan_data &= ~(3 << scan_shift);
+    *scan_data |= scan << scan_shift;
+
+    setup_banks (i, banks);
+    encode_name (i, name);
 }
 
 static void print_offset (FILE *out, int rx_hz, int tx_hz)
@@ -616,14 +695,16 @@ static void ft60r_print_config (FILE *out, int verbose)
     if (verbose) {
         fprintf (out, "# Table of preprogrammed channels.\n");
         fprintf (out, "# 1) Channel number: 1-%d\n", NCHAN);
-        fprintf (out, "# 2) Receive frequency in MHz\n");
-        fprintf (out, "# 3) Transmit frequency or offset in MHz\n");
-        fprintf (out, "# 4) Squelch tone for receive, or '-' to disable\n");
-        fprintf (out, "# 5) Squelch tone for transmit, or '-' to disable\n");
-        fprintf (out, "# 6) Transmit power: High, Mid, Low\n");
-        fprintf (out, "# 7) Modulation: Wide, Narrow, AM\n");
-        fprintf (out, "# 8) Scan mode: +, -, Pref\n");
-        //fprintf (out, "#\n");
+        fprintf (out, "# 2) Name: up to 6 characters, no spaces\n");
+        fprintf (out, "# 3) Receive frequency in MHz\n");
+        fprintf (out, "# 4) Transmit frequency or +/- offset in MHz\n");
+        fprintf (out, "# 5) Squelch tone for receive, or '-' to disable\n");
+        fprintf (out, "# 6) Squelch tone for transmit, or '-' to disable\n");
+        fprintf (out, "# 7) Transmit power: High, Mid, Low\n");
+        fprintf (out, "# 8) Modulation: Wide, Narrow, AM\n");
+        fprintf (out, "# 9) Scan mode: +, -, Pref\n");
+        fprintf (out, "# 10) List of banks 0..9, or '-' to disable\n");
+        fprintf (out, "#\n");
     }
     fprintf (out, "Channel Name    Receive  Transmit R-Squel T-Squel Power Modulation Scan Banks\n");
     for (i=0; i<NCHAN; i++) {
@@ -656,6 +737,13 @@ static void ft60r_print_config (FILE *out, int verbose)
     // Preferred memory scans.
     //
     fprintf (out, "\n");
+    if (verbose) {
+        fprintf (out, "# Programmable memory scan: list of sub-band limits.\n");
+        fprintf (out, "# 1) PMS pair number: 1-50\n");
+        fprintf (out, "# 2) Lower frequency in MHz\n");
+        fprintf (out, "# 3) Upper frequency in MHz\n");
+        fprintf (out, "#\n");
+    }
     fprintf (out, "PMS     Lower    Upper\n");
     for (i=0; i<50; i++) {
         int lower_hz, upper_hz, tx_hz, rx_ctcs, tx_ctcs, rx_dcs, tx_dcs;
@@ -684,6 +772,17 @@ static void ft60r_print_config (FILE *out, int verbose)
     // Home channels.
     //
     fprintf (out, "\n");
+    if (verbose) {
+        fprintf (out, "# Table of home frequencies.\n");
+        fprintf (out, "# 1) Band: 144, 250, 350, 430 or, 850\n");
+        fprintf (out, "# 2) Receive frequency in MHz\n");
+        fprintf (out, "# 3) Transmit frequency or +/- offset in MHz\n");
+        fprintf (out, "# 4) Squelch tone for receive, or '-' to disable\n");
+        fprintf (out, "# 5) Squelch tone for transmit, or '-' to disable\n");
+        fprintf (out, "# 6) Transmit power: High, Mid, Low\n");
+        fprintf (out, "# 7) Modulation: Wide, Narrow, AM\n");
+        fprintf (out, "#\n");
+    }
     fprintf (out, "Home    Receive  Transmit R-Squel T-Squel Power Modulation\n");
     for (i=0; i<5; i++) {
         int rx_hz, tx_hz, rx_ctcs, tx_ctcs, rx_dcs, tx_dcs;
@@ -707,7 +806,7 @@ static void ft60r_print_config (FILE *out, int verbose)
     // VFO channels.
     // Not much sense to store this to the configuration file.
     //
-#if 1
+#if 0
     fprintf (out, "\n");
     fprintf (out, "VFO     Receive  Transmit R-Squel T-Squel Step  Power Modulation\n");
     for (i=0; i<5; i++) {

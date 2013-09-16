@@ -30,11 +30,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
-#ifdef MINGW32
-#   include <windows.h>
-#else
-#   include <termios.h>
-#endif
 #include <time.h>
 #include <sys/stat.h>
 #include "radio.h"
@@ -48,115 +43,6 @@ int radio_progress;                     // Read/write progress counter
 static radio_device_t *device;          // Device-dependent interface
 static unsigned char image_ident [8];   // Image file: identifier
 static int echo_detected;               // Serial port is in echo mode
-#ifdef MINGW32
-DCB saved_mode;                         // Mode of serial port, Windows
-#else
-static struct termios oldtio, newtio;   // Mode of serial port, Unix
-#endif
-
-//
-// Open the serial port.
-//
-static int open_port (char *portname)
-{
-#ifdef MINGW32
-    HANDLE fd;
-    DCB new_mode;
-    COMMTIMEOUTS timo;
-
-    /* Open port */
-    fd = CreateFile (portname, GENERIC_READ | GENERIC_WRITE,
-        0, 0, OPEN_EXISTING, 0, 0);
-    if (fd == INVALID_HANDLE_VALUE) {
-        fprintf (stderr, "%s: Cannot open\n", portname);
-        exit (-1);
-    }
-
-    /* Set serial attributes */
-    memset (&saved_mode, 0, sizeof(saved_mode));
-    if (! GetCommState (fd, &saved_mode)) {
-        fprintf (stderr, "%s: Cannot get state\n", portname);
-        exit (-1);
-    }
-
-    new_mode = saved_mode;
-
-    new_mode.BaudRate = CBR_9600;
-    new_mode.ByteSize = 8;
-    new_mode.StopBits = ONESTOPBIT;
-    new_mode.Parity = 0;
-    new_mode.fParity = FALSE;
-    new_mode.fOutX = FALSE;
-    new_mode.fInX = FALSE;
-    new_mode.fOutxCtsFlow = FALSE;
-    new_mode.fOutxDsrFlow = FALSE;
-    new_mode.fRtsControl = RTS_CONTROL_DISABLE;
-    new_mode.fNull = FALSE;
-    new_mode.fAbortOnError = FALSE;
-    new_mode.fBinary = TRUE;
-    if (! SetCommState (fd, &new_mode)) {
-        fprintf (stderr, "%s: Cannot set state\n", portname);
-        exit (-1);
-    }
-
-    timo.ReadIntervalTimeout = 0;
-    timo.ReadTotalTimeoutMultiplier = 0;
-    timo.ReadTotalTimeoutConstant = 200;
-    timo.WriteTotalTimeoutMultiplier = 1;
-    timo.WriteTotalTimeoutConstant = 1000;
-    SetCommTimeouts (fd, &timo);
-
-    // Flush received data pending on the port.
-    PurgeComm ((HANDLE) radio_port, PURGE_RXCLEAR);
-    return (int) fd;
-#else
-    int fd;
-
-    // Use non-block flag to ignore carrier (DCD).
-    fd = open (portname, O_RDWR | O_NOCTTY | O_NONBLOCK);
-    if (fd < 0) {
-        perror (portname);
-        exit (-1);
-    }
-
-    // Get terminal modes.
-    tcgetattr (fd, &oldtio);
-    newtio = oldtio;
-
-    newtio.c_cflag &= ~CSIZE;
-    newtio.c_cflag |= CS8;              // 8 data bits
-    newtio.c_cflag |= CLOCAL | CREAD;   // enable receiver, set local mode
-    newtio.c_cflag &= ~PARENB;          // no parity
-    newtio.c_cflag &= ~CSTOPB;          // 1 stop bit
-    newtio.c_cflag &= ~CRTSCTS;         // no h/w handshake
-    newtio.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);  // raw input
-    newtio.c_oflag &= ~OPOST;           // raw output
-    newtio.c_iflag &= ~IXON;            // software flow control disabled
-    newtio.c_iflag &= ~ICRNL;           // do not translate CR to NL
-
-    cfsetispeed(&newtio, B9600);        // Set baud rate.
-    cfsetospeed(&newtio, B9600);
-
-    // Set terminal modes.
-    tcsetattr (fd, TCSANOW, &newtio);
-
-    // Clear the non-block flag.
-    int flags = fcntl (fd, F_GETFL, 0);
-    if (flags < 0) {
-        perror("F_GETFL");
-        exit (-1);
-    }
-    flags &= ~O_NONBLOCK;
-    if (fcntl (fd, F_SETFL, flags) < 0) {
-        perror("F_SETFL");
-        exit (-1);
-    }
-
-    // Flush received data pending on the port.
-    tcflush (fd, TCIFLUSH);
-    return fd;
-#endif
-}
 
 //
 // Close the serial port.
@@ -166,14 +52,7 @@ void radio_disconnect()
     fprintf (stderr, "Close device.\n");
 
     // Restore the port mode.
-#ifdef MINGW32
-    SetCommState ((HANDLE) radio_port, &saved_mode);
-    CloseHandle ((HANDLE) radio_port);
-#else
-    tcsetattr (radio_port, TCSANOW, &oldtio);
-    close (radio_port);
-    radio_port = -1;
-#endif
+    serial_close (radio_port);
 
     // Radio needs a timeout to reset to a normal state.
     mdelay (2000);
@@ -203,11 +82,7 @@ static int try_magic (const unsigned char *magic)
         print_hex (magic, magic_len);
         printf ("\n");
     }
-#ifdef MINGW32
-    PurgeComm ((HANDLE) radio_port, PURGE_RXCLEAR);
-#else
-    tcflush (radio_port, TCIFLUSH);
-#endif
+    serial_flush (radio_port);
     serial_write (radio_port, magic, magic_len);
 
     // Check response.
@@ -267,7 +142,7 @@ void radio_connect (char *port_name)
     int retry;
 
     fprintf (stderr, "Connect to %s.\n", port_name);
-    radio_port = open_port (port_name);
+    radio_port = serial_open (port_name);
     for (retry=0; ; retry++) {
         if (retry >= 10) {
             fprintf (stderr, "Device not detected.\n");
@@ -342,6 +217,7 @@ void radio_upload()
     if (! verbose)
         fprintf (stderr, "Write device: ");
 
+    serial_flush (radio_port);
     device->upload();
 
     if (! verbose)

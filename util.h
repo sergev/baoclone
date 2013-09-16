@@ -57,6 +57,21 @@ extern const int DCS_CODES [NDCS];
 void print_hex (const unsigned char *data, int len);
 
 //
+// Open the serial port.
+//
+int serial_open (char *portname);
+
+//
+// Close the serial port.
+//
+void serial_close (int fd);
+
+//
+// Purge all received data.
+//
+void serial_flush (int fd);
+
+//
 // Read data from serial port.
 // Return 0 when no data available.
 // Use 200-msec timeout.
