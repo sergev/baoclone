@@ -237,6 +237,8 @@ static void ft60r_upload()
     fflush (stderr);
     serial_flush (radio_port);
     fgets (buf, sizeof(buf), stdin);
+    fprintf (stderr, "Sending data... ");
+    fflush (stderr);
 
     write_block (radio_port, 0, radio_ident, 8);
     for (addr=8; addr<MEMSZ; addr+=64)
@@ -479,6 +481,8 @@ static int encode_char (int c)
     // Replace underscore by space.
     if (c == '_')
         c = ' ';
+    if (c >= 'a' && c <= 'z')
+        c += 'A' - 'a';
     for (i=0; i<NCHARS; i++)
         if (c == CHARSET[i])
             return i;
@@ -593,7 +597,7 @@ static void setup_channel (int i, char *name, double rx_mhz, double tx_mhz,
 //if (rx_mhz) printf ("%5d   %-7s %8.4f %8.4f %u %u %u %u %u %u %u %u %#x\n", i+1, name, rx_mhz, tx_mhz, tmode, tone, dtcs, power, wide, scan, isam, step, banks);
     memory_channel_t *ch = i + (memory_channel_t*) &radio_mem[OFFSET_CHANNELS];
 
-    hz_to_freq ((int) (rx_mhz * 100000.0), ch->rxfreq);
+    hz_to_freq ((int) (rx_mhz * 1000000.0), ch->rxfreq);
 
     double offset_mhz = tx_mhz - rx_mhz;
     if (offset_mhz >= 0 && offset_mhz < 256 * 0.05) {
@@ -608,7 +612,7 @@ static void setup_channel (int i, char *name, double rx_mhz, double tx_mhz,
     } else {
         ch->duplex = D_CROSS_BAND;
         ch->offset = 0;
-        hz_to_freq ((int) (tx_mhz * 100000.0), ch->txfreq);
+        hz_to_freq ((int) (tx_mhz * 1000000.0), ch->txfreq);
     }
     ch->used = (rx_mhz > 0);
     ch->tmode = tmode;
