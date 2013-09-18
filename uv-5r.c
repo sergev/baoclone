@@ -221,7 +221,7 @@ static void aged_download()
 //
 // Write memory image to the device.
 //
-static void uv5r_upload()
+static void uv5r_upload (int cont_flag)
 {
     int addr;
 

@@ -206,7 +206,7 @@ void radio_download()
 //
 // Write firmware image to the device.
 //
-void radio_upload()
+void radio_upload (int cont_flag)
 {
     // Check for compatibility.
     if (memcmp (image_ident, radio_ident, sizeof(radio_ident)) != 0) {
@@ -218,7 +218,7 @@ void radio_upload()
         fprintf (stderr, "Write device: ");
 
     serial_flush (radio_port);
-    device->upload();
+    device->upload (cont_flag);
 
     if (! verbose)
         fprintf (stderr, " done.\n");

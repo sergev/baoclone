@@ -65,6 +65,48 @@ enum {
     STEP_100,
 };
 
+typedef struct {
+    uint8_t     duplex    : 4,  // Repeater mode
+#define D_SIMPLEX       0
+#define D_NEG_OFFSET    2
+#define D_POS_OFFSET    3
+#define D_CROSS_BAND    4
+                isam      : 1,  // Amplitude modulation
+                isnarrow  : 1,  // Narrow FM modulation
+                _u1       : 1,
+                used      : 1;  // Channel is used
+    uint8_t     rxfreq [3];     // Receive frequency
+    uint8_t     tmode     : 3,  // CTCSS/DCS mode
+#define T_OFF           0
+#define T_TONE          1
+#define T_TSQL          2
+#define T_TSQL_REV      3
+#define T_DTCS          4
+#define T_D             5
+#define T_T_DCS         6
+#define T_D_TSQL        7
+                step      : 3,  // Frequency step
+                _u2       : 2;
+    uint8_t     txfreq [3];     // Transmit frequency when cross-band
+    uint8_t     tone      : 6,  // CTCSS tone select
+#define TONE_DEFAULT    12
+
+                power     : 2;  // Transmit power level
+    uint8_t     dtcs      : 7,  // DCS code select
+                _u3       : 1;
+    uint8_t     _u4 [2];
+    uint8_t     offset;         // TX offset, in 50kHz steps
+    uint8_t     _u5 [3];
+} memory_channel_t;
+
+typedef struct {
+    uint8_t     name[6];
+    uint8_t     _u1       : 7,
+                used      : 1;
+    uint8_t     _u2       : 7,
+                valid     : 1;
+} memory_name_t;
+
 //
 // Print a generic information about the device.
 //
@@ -119,8 +161,9 @@ static int read_block (int fd, int start, unsigned char *data, int nbytes)
 //
 // Write block of data, up to 64 bytes.
 // Halt the program on any error.
+// Return 0 on error.
 //
-static void write_block (int fd, int start, const unsigned char *data, int nbytes)
+static int write_block (int fd, int start, const unsigned char *data, int nbytes)
 {
     unsigned char reply[64];
     int len;
@@ -130,18 +173,18 @@ static void write_block (int fd, int start, const unsigned char *data, int nbyte
     // Get echo.
     len = serial_read (fd, reply, nbytes);
     if (len != nbytes) {
-        fprintf (stderr, "Echo for block 0x%04x: got only %d bytes.\n", start, len);
-        exit(-1);
+        fprintf (stderr, "! Echo for block 0x%04x: got only %d bytes.\n", start, len);
+        return 0;
     }
 
     // Get acknowledge.
     if (serial_read (fd, reply, 1) != 1) {
-        fprintf (stderr, "No acknowledge after block 0x%04x.\n", start);
-        exit(-1);
+        fprintf (stderr, "! No acknowledge after block 0x%04x.\n", start);
+        return 0;
     }
     if (reply[0] != 0x06) {
-        fprintf (stderr, "Bad acknowledge after block 0x%04x: %02x\n", start, reply[0]);
-        exit(-1);
+        fprintf (stderr, "! Bad acknowledge after block 0x%04x: %02x\n", start, reply[0]);
+        return 0;
     }
     if (verbose) {
         printf ("# Write 0x%04x: ", start);
@@ -154,6 +197,7 @@ static void write_block (int fd, int start, const unsigned char *data, int nbyte
             fflush (stderr);
         }
     }
+    return 1;
 }
 
 //
@@ -215,7 +259,7 @@ again:
 //
 // Write memory image to the device.
 //
-static void ft60r_upload()
+static void ft60r_upload (int cont_flag)
 {
     int addr, sum;
     char buf[80];
@@ -225,13 +269,19 @@ static void ft60r_upload()
     else
         fprintf (stderr, "please follow the procedure.\n");
     fprintf (stderr, "\n");
-    fprintf (stderr, "1. Power Off the FT60.\n");
-    fprintf (stderr, "2. Hold down the MONI switch and Power On the FT60.\n");
-    fprintf (stderr, "3. Rotate the right DIAL knob to select F8 CLONE.\n");
-    fprintf (stderr, "4. Briefly press the [F/W] key. The display should go blank then show CLONE.\n");
-    fprintf (stderr, "5. Press and hold the MONI switch until the radio starts to receive.\n");
-    fprintf (stderr, "5. Press <Enter> to continue.\n");
+    if (cont_flag) {
+        fprintf (stderr, "1. Press the MONI switch until the radio starts to receive.\n");
+        fprintf (stderr, "2. Press <Enter> to continue.\n");
+    } else {
+        fprintf (stderr, "1. Power Off the FT60.\n");
+        fprintf (stderr, "2. Hold down the MONI switch and Power On the FT60.\n");
+        fprintf (stderr, "3. Rotate the right DIAL knob to select F8 CLONE.\n");
+        fprintf (stderr, "4. Briefly press the [F/W] key. The display should go blank then show CLONE.\n");
+        fprintf (stderr, "5. Press the MONI switch until the radio starts to receive.\n");
+        fprintf (stderr, "6. Press <Enter> to continue.\n");
+    }
     fprintf (stderr, "-- Or enter ^C to abort the memory write.\n");
+again:
     fprintf (stderr, "\n");
     fprintf (stderr, "Press <Enter> to continue: ");
     fflush (stderr);
@@ -240,9 +290,17 @@ static void ft60r_upload()
     fprintf (stderr, "Sending data... ");
     fflush (stderr);
 
-    write_block (radio_port, 0, radio_ident, 8);
+    if (! write_block (radio_port, 0, radio_ident, 8)) {
+error:  fprintf (stderr, "\nPlease, repeat the procedure:\n");
+        fprintf (stderr, "1. Briefly press the [F/W] key to clear the ERROR status.\n");
+        fprintf (stderr, "2. Press the MONI switch until the radio starts to receive.\n");
+        fprintf (stderr, "3. Press <Enter> to continue.\n");
+        fprintf (stderr, "-- Or enter ^C to abort the memory write.\n");
+        goto again;
+    }
     for (addr=8; addr<MEMSZ; addr+=64)
-        write_block (radio_port, addr, &radio_mem[addr], 64);
+        if (! write_block (radio_port, addr, &radio_mem[addr], 64))
+            goto error;
 
     // Compute the checksum.
     sum = 0;
@@ -253,48 +311,9 @@ static void ft60r_upload()
     radio_mem[MEMSZ] = sum;
 
     // Send a checksum.
-    write_block (radio_port, MEMSZ, &radio_mem[MEMSZ], 1);
+    if (! write_block (radio_port, MEMSZ, &radio_mem[MEMSZ], 1))
+        goto error;
 }
-
-typedef struct {
-    uint8_t     duplex    : 4,  // Repeater mode
-#define D_SIMPLEX       0
-#define D_NEG_OFFSET    2
-#define D_POS_OFFSET    3
-#define D_CROSS_BAND    4
-                isam      : 1,  // Amplitude modulation
-                isnarrow  : 1,  // Narrow FM modulation
-                _u1       : 1,
-                used      : 1;  // Channel is used
-    uint8_t     rxfreq [3];     // Receive frequency
-    uint8_t     tmode     : 3,  // CTCSS/DCS mode
-#define T_OFF           0
-#define T_TONE          1
-#define T_TSQL          2
-#define T_TSQL_REV      3
-#define T_DTCS          4
-#define T_D             5
-#define T_T_DCS         6
-#define T_D_TSQL        7
-                step      : 3,  // Frequency step
-                _u2       : 2;
-    uint8_t     txfreq [3];     // Transmit frequency when cross-band
-    uint8_t     tone      : 6,  // CTCSS tone select
-                power     : 2;  // Transmit power level
-    uint8_t     dtcs      : 7,  // DCS code select
-                _u3       : 1;
-    uint8_t     _u4 [2];
-    uint8_t     offset;         // TX offset, in 50kHz steps
-    uint8_t     _u5 [3];
-} memory_channel_t;
-
-typedef struct {
-    uint8_t     name[6];
-    uint8_t     _u1       : 7,
-                used      : 1;
-    uint8_t     _u2       : 7,
-                valid     : 1;
-} memory_name_t;
 
 //
 // Convert squelch string to CTCSS tone index.
@@ -366,7 +385,7 @@ static int encode_squelch (char *rx, char *tx, int *tone, int *dtcs)
     }
 
     // Encode tmode.
-    *tone = 0;
+    *tone = TONE_DEFAULT;
     *dtcs = 0;
     if (rx_dcs >= 0) {
         *dtcs = rx_dcs;
@@ -600,18 +619,18 @@ static void setup_channel (int i, char *name, double rx_mhz, double tx_mhz,
     hz_to_freq ((int) (rx_mhz * 1000000.0), ch->rxfreq);
 
     double offset_mhz = tx_mhz - rx_mhz;
-    if (offset_mhz >= 0 && offset_mhz < 256 * 0.05) {
+    ch->offset = 0;
+    ch->txfreq[0] = ch->txfreq[1] = ch->txfreq[2] = 0;
+    if (offset_mhz == 0) {
+        ch->duplex = D_SIMPLEX;
+    } else if (offset_mhz > 0 && offset_mhz < 256 * 0.05) {
         ch->duplex = D_POS_OFFSET;
         ch->offset = (int) (offset_mhz / 0.05 + 0.5);
-        ch->txfreq[0] = ch->txfreq[1] = ch->txfreq[2] = 0;
-
     } else if (offset_mhz < 0 && offset_mhz > -256 * 0.05) {
         ch->duplex = D_NEG_OFFSET;
         ch->offset = (int) (-offset_mhz / 0.05 + 0.5);
-        ch->txfreq[0] = ch->txfreq[1] = ch->txfreq[2] = 0;
     } else {
         ch->duplex = D_CROSS_BAND;
-        ch->offset = 0;
         hz_to_freq ((int) (tx_mhz * 1000000.0), ch->txfreq);
     }
     ch->used = (rx_mhz > 0);
@@ -621,11 +640,12 @@ static void setup_channel (int i, char *name, double rx_mhz, double tx_mhz,
     ch->power = power;
     ch->isnarrow = ! wide;
     ch->isam = isam;
-    ch->step = step;
+    ch->step = (rx_mhz >= 400) ? STEP_12_5 : STEP_5;
     ch->_u1 = 0;
-    ch->_u2 = 0;
+    ch->_u2 = (rx_mhz >= 400);
     ch->_u3 = 0;
-    ch->_u4[0] = ch->_u4[1] = 0;
+    ch->_u4[0] = 15;
+    ch->_u4[1] = 0;
     ch->_u5[0] = ch->_u5[1] = ch->_u5[2] = 0;
 
     // Scan mode.
@@ -1019,7 +1039,7 @@ badtx:  fprintf (stderr, "Bad transmit frequency.\n");
         // On first entry, erase the channel table.
         int i;
         for (i=0; i<NCHAN; i++) {
-            setup_channel (i, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0);
+            setup_channel (i, 0, 0, 0, 0, TONE_DEFAULT, 0, 0, 1, 0, 0, 0, 0);
         }
     }
 

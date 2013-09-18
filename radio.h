@@ -45,7 +45,7 @@ void radio_download (void);
 //
 // Write firmware image to the device.
 //
-void radio_upload (void);
+void radio_upload (int cont_flag);
 
 //
 // Print a generic information about the device.
@@ -78,7 +78,7 @@ void radio_parse_config (char *filename);
 typedef struct {
     const char *name;
     void (*download) (void);
-    void (*upload) (void);
+    void (*upload) (int cont_flag);
     void (*read_image) (FILE *img, unsigned char *ident);
     void (*save_image) (FILE *img);
     void (*print_version) (FILE *out);

@@ -163,7 +163,7 @@ static void bf888s_download()
 //
 // Write memory image to the device.
 //
-static void bf888s_upload()
+static void bf888s_upload (int cont_flag)
 {
     int addr;
 

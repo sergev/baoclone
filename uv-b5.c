@@ -175,7 +175,7 @@ static void uvb5_download()
 //
 // Write memory image to the device.
 //
-static void uvb5_upload()
+static void uvb5_upload (int cont_flag)
 {
     int addr;
 
