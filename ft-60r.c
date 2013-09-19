@@ -44,15 +44,16 @@
 #define OFFSET_BANKS    0x69c8
 #define OFFSET_SCAN     0x6ec8
 
-static const char CHARSET[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ [?]^__|`?$%&-()*+,-,/|;/=>?@";
+static const char CHARSET[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ !`o$%&'()*+,-./|;/=>?@[~]^__";
 #define NCHARS  65
 #define SPACE   36
+#define OPENBOX 64
 
 static const char *BAND_NAME[5] = { "144", "250", "350", "430", "850" };
 
 static const char *POWER_NAME[] = { "High", "Med", "Low", "??" };
 
-static const char *SCAN_NAME[] = { "+", "Pref", "-", "??" };
+static const char *SCAN_NAME[] = { "+", "-", "Only", "??" };
 
 enum {
     STEP_5 = 0,
@@ -505,7 +506,7 @@ static int encode_char (int c)
     for (i=0; i<NCHARS; i++)
         if (c == CHARSET[i])
             return i;
-    return SPACE;
+    return OPENBOX;
 }
 
 static void encode_name (int i, char *name)
@@ -522,7 +523,6 @@ static void encode_name (int i, char *name)
         }
         for (; n<6; n++)
             nm->name[n] = SPACE;
-
     } else {
         // Clear name.
         nm->valid = 0;
@@ -613,7 +613,6 @@ static void decode_channel (int i, int seek, char *name,
 static void setup_channel (int i, char *name, double rx_mhz, double tx_mhz,
     int tmode, int tone, int dtcs, int power, int wide, int scan, int isam, int step, int banks)
 {
-//if (rx_mhz) printf ("%5d   %-7s %8.4f %8.4f %u %u %u %u %u %u %u %u %#x\n", i+1, name, rx_mhz, tx_mhz, tmode, tone, dtcs, power, wide, scan, isam, step, banks);
     memory_channel_t *ch = i + (memory_channel_t*) &radio_mem[OFFSET_CHANNELS];
 
     hz_to_freq ((int) (rx_mhz * 1000000.0), ch->rxfreq);
@@ -726,7 +725,7 @@ static void ft60r_print_config (FILE *out, int verbose)
         fprintf (out, "# 6) Squelch tone for transmit, or '-' to disable\n");
         fprintf (out, "# 7) Transmit power: High, Mid, Low\n");
         fprintf (out, "# 8) Modulation: Wide, Narrow, AM\n");
-        fprintf (out, "# 9) Scan mode: +, -, Pref\n");
+        fprintf (out, "# 9) Scan mode: +, -, Only\n");
         fprintf (out, "# 10) List of banks 0..9, or '-' to disable\n");
         fprintf (out, "#\n");
     }
@@ -758,7 +757,7 @@ static void ft60r_print_config (FILE *out, int verbose)
         print_squelch_tones (out, 1);
 
     //
-    // Preferred memory scans.
+    // Programmable memory scan.
     //
     fprintf (out, "\n");
     if (verbose) {
@@ -1023,9 +1022,9 @@ badtx:  fprintf (stderr, "Bad transmit frequency.\n");
 
     if (*scan_str == '+') {
         scan = 0;
-    } else if (strcasecmp ("Pref", scan_str) == 0) {
-        scan = 1;
     } else if (*scan_str == '-') {
+        scan = 1;
+    } else if (strcasecmp ("Only", scan_str) == 0) {
         scan = 2;
     } else {
         fprintf (stderr, "Bad scan flag.\n");
