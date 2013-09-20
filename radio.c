@@ -305,15 +305,21 @@ void radio_parse_config (char *filename)
     }
 
     while (fgets (line, sizeof(line), conf)) {
-        // Strip trailing spaces and newline.
         line[sizeof(line)-1] = 0;
+
+        // Strip comments.
+        v = strchr (line, '#');
+        if (v)
+            *v = 0;
+
+        // Strip trailing spaces and newline.
         v = line + strlen(line) - 1;
         while (v >= line && (*v=='\n' || *v=='\r' || *v==' ' || *v=='\t'))
             *v-- = 0;
 
         // Ignore comments and empty lines.
         p = line;
-        if (*p == '#' || *p == 0)
+        if (*p == 0)
             continue;
 
         if (*p != ' ') {

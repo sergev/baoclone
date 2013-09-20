@@ -34,6 +34,7 @@
 #include "util.h"
 
 #define NCHAN           1000
+#define NPMS            50
 #define MEMSZ           0x6fc8
 
 #define OFFSET_VFO      0x0048
@@ -611,7 +612,7 @@ static void decode_channel (int i, int seek, char *name,
 }
 
 static void setup_channel (int i, char *name, double rx_mhz, double tx_mhz,
-    int tmode, int tone, int dtcs, int power, int wide, int scan, int isam, int step, int banks)
+    int tmode, int tone, int dtcs, int power, int wide, int scan, int isam, int banks)
 {
     memory_channel_t *ch = i + (memory_channel_t*) &radio_mem[OFFSET_CHANNELS];
 
@@ -655,6 +656,64 @@ static void setup_channel (int i, char *name, double rx_mhz, double tx_mhz,
 
     setup_banks (i, banks);
     encode_name (i, name);
+}
+
+static void setup_home (int band, double rx_mhz, double tx_mhz,
+    int tmode, int tone, int dtcs, int power, int wide, int isam)
+{
+    memory_channel_t *ch = (memory_channel_t*) &radio_mem[OFFSET_HOME];
+
+    switch (band) {
+    default:  break;
+    case 250: ch += 1; break;
+    case 350: ch += 2; break;
+    case 430: ch += 3; break;
+    case 850: ch += 4; break;
+    }
+    hz_to_freq ((int) (rx_mhz * 1000000.0), ch->rxfreq);
+
+    double offset_mhz = tx_mhz - rx_mhz;
+    ch->offset = 0;
+    ch->txfreq[0] = ch->txfreq[1] = ch->txfreq[2] = 0;
+    if (offset_mhz == 0) {
+        ch->duplex = D_SIMPLEX;
+    } else if (offset_mhz > 0 && offset_mhz < 256 * 0.05) {
+        ch->duplex = D_POS_OFFSET;
+        ch->offset = (int) (offset_mhz / 0.05 + 0.5);
+    } else if (offset_mhz < 0 && offset_mhz > -256 * 0.05) {
+        ch->duplex = D_NEG_OFFSET;
+        ch->offset = (int) (-offset_mhz / 0.05 + 0.5);
+    } else {
+        ch->duplex = D_CROSS_BAND;
+        hz_to_freq ((int) (tx_mhz * 1000000.0), ch->txfreq);
+    }
+    ch->used = (rx_mhz > 0);
+    ch->tmode = tmode;
+    ch->tone = tone;
+    ch->dtcs = dtcs;
+    ch->power = power;
+    ch->isnarrow = ! wide;
+    ch->isam = isam;
+    ch->step = (rx_mhz >= 400) ? STEP_12_5 : STEP_5;
+    ch->_u1 = 0;
+    ch->_u2 = (rx_mhz >= 400);
+    ch->_u3 = 0;
+    ch->_u4[0] = 15;
+    ch->_u4[1] = 0;
+    ch->_u5[0] = ch->_u5[1] = ch->_u5[2] = 0;
+}
+
+static void setup_pms (int i, double lower_mhz, double upper_mhz)
+{
+    memory_channel_t *ch = i*2 + (memory_channel_t*) &radio_mem[OFFSET_PMS];
+
+    if (! lower_mhz) {
+        ch->used = 0;
+        return;
+    }
+    ch->used = 1;
+    hz_to_freq ((int) (lower_mhz * 1000000.0), ch[0].rxfreq);
+    hz_to_freq ((int) (upper_mhz * 1000000.0), ch[1].rxfreq);
 }
 
 static void print_offset (FILE *out, int rx_hz, int tx_hz)
@@ -757,41 +816,6 @@ static void ft60r_print_config (FILE *out, int verbose)
         print_squelch_tones (out, 1);
 
     //
-    // Programmable memory scan.
-    //
-    fprintf (out, "\n");
-    if (verbose) {
-        fprintf (out, "# Programmable memory scan: list of sub-band limits.\n");
-        fprintf (out, "# 1) PMS pair number: 1-50\n");
-        fprintf (out, "# 2) Lower frequency in MHz\n");
-        fprintf (out, "# 3) Upper frequency in MHz\n");
-        fprintf (out, "#\n");
-    }
-    fprintf (out, "PMS     Lower    Upper\n");
-    for (i=0; i<50; i++) {
-        int lower_hz, upper_hz, tx_hz, rx_ctcs, tx_ctcs, rx_dcs, tx_dcs;
-        int power, wide, scan, isam, step;
-
-        decode_channel (i*2, OFFSET_PMS, 0, &lower_hz, &tx_hz, &rx_ctcs, &tx_ctcs,
-            &rx_dcs, &tx_dcs, &power, &wide, &scan, &isam, &step, 0);
-        decode_channel (i*2+1, OFFSET_PMS, 0, &upper_hz, &tx_hz, &rx_ctcs, &tx_ctcs,
-            &rx_dcs, &tx_dcs, &power, &wide, &scan, &isam, &step, 0);
-        if (lower_hz == 0 && upper_hz == 0)
-            continue;
-
-        fprintf (out, "%5d   ", i+1);
-        if (lower_hz == 0)
-            fprintf (out, "-       ");
-        else
-            fprintf (out, "%8.4f", lower_hz / 1000000.0);
-        if (upper_hz == 0)
-
-            fprintf (out, " -\n");
-        else
-            fprintf (out, " %8.4f\n", upper_hz / 1000000.0);
-    }
-
-    //
     // Home channels.
     //
     fprintf (out, "\n");
@@ -823,6 +847,41 @@ static void ft60r_print_config (FILE *out, int verbose)
 
         fprintf (out, "   %-4s  %s\n", POWER_NAME[power],
             isam ? "AM" : wide ? "Wide" : "Narrow");
+    }
+
+    //
+    // Programmable memory scan.
+    //
+    fprintf (out, "\n");
+    if (verbose) {
+        fprintf (out, "# Programmable memory scan: list of sub-band limits.\n");
+        fprintf (out, "# 1) PMS pair number: 1-50\n");
+        fprintf (out, "# 2) Lower frequency in MHz\n");
+        fprintf (out, "# 3) Upper frequency in MHz\n");
+        fprintf (out, "#\n");
+    }
+    fprintf (out, "PMS     Lower    Upper\n");
+    for (i=0; i<NPMS; i++) {
+        int lower_hz, upper_hz, tx_hz, rx_ctcs, tx_ctcs, rx_dcs, tx_dcs;
+        int power, wide, scan, isam, step;
+
+        decode_channel (i*2, OFFSET_PMS, 0, &lower_hz, &tx_hz, &rx_ctcs, &tx_ctcs,
+            &rx_dcs, &tx_dcs, &power, &wide, &scan, &isam, &step, 0);
+        decode_channel (i*2+1, OFFSET_PMS, 0, &upper_hz, &tx_hz, &rx_ctcs, &tx_ctcs,
+            &rx_dcs, &tx_dcs, &power, &wide, &scan, &isam, &step, 0);
+        if (lower_hz == 0 && upper_hz == 0)
+            continue;
+
+        fprintf (out, "%5d   ", i+1);
+        if (lower_hz == 0)
+            fprintf (out, "-       ");
+        else
+            fprintf (out, "%8.4f", lower_hz / 1000000.0);
+        if (upper_hz == 0)
+
+            fprintf (out, " -\n");
+        else
+            fprintf (out, " %8.4f\n", upper_hz / 1000000.0);
     }
 
     //
@@ -901,6 +960,7 @@ static int is_valid_frequency (int mhz)
     return 0;
 }
 
+#if 0
 static int default_step (double mhz)
 {
     static const struct {
@@ -937,6 +997,7 @@ static int default_step (double mhz)
     }
     return STEP_5;
 }
+#endif
 
 static int encode_banks (char *str)
 {
@@ -965,7 +1026,7 @@ static int parse_channel (int first_row, char *line)
     char num_str[256], name_str[256], rxfreq_str[256], offset_str[256];
     char rq_str[256], tq_str[256], power_str[256], wide_str[256];
     char scan_str[256], banks_str[256];
-    int num, tmode, tone, dtcs, power, wide, scan, isam, step, banks;
+    int num, tmode, tone, dtcs, power, wide, scan, isam, banks;
     double rx_mhz, tx_mhz;
 
     if (sscanf (line, "%s %s %s %s %s %s %s %s %s %s",
@@ -1031,31 +1092,118 @@ badtx:  fprintf (stderr, "Bad transmit frequency.\n");
         return 0;
     }
 
-    step = default_step (rx_mhz);
     banks = encode_banks (banks_str);
 
     if (first_row) {
         // On first entry, erase the channel table.
         int i;
         for (i=0; i<NCHAN; i++) {
-            setup_channel (i, 0, 0, 0, 0, TONE_DEFAULT, 0, 0, 1, 0, 0, 0, 0);
+            setup_channel (i, 0, 0, 0, 0, TONE_DEFAULT, 0, 0, 1, 0, 0, 0);
         }
     }
 
     setup_channel (num-1, name_str, rx_mhz, tx_mhz,
-        tmode, tone, dtcs, power, wide, scan, isam, step, banks);
+        tmode, tone, dtcs, power, wide, scan, isam, banks);
     return 1;
 }
 
 static int parse_home (int first_row, char *line)
 {
-    // TODO
+    char band_str[256], rxfreq_str[256], offset_str[256];
+    char rq_str[256], tq_str[256], power_str[256], wide_str[256];
+    int band, tmode, tone, dtcs, power, wide, isam;
+    double rx_mhz, tx_mhz;
+
+    if (sscanf (line, "%s %s %s %s %s %s %s",
+        band_str, rxfreq_str, offset_str, rq_str, tq_str,
+        power_str, wide_str) != 7)
+        return 0;
+
+    band = atoi (band_str);
+    if (band != 144 && band != 250 && band != 350 &&
+        band != 430 && band != 850) {
+        fprintf (stderr, "Incorrect band.\n");
+        return 0;
+    }
+
+    if (sscanf (rxfreq_str, "%lf", &rx_mhz) != 1 ||
+        ! is_valid_frequency (rx_mhz)) {
+        fprintf (stderr, "Bad receive frequency.\n");
+        return 0;
+    }
+    if (sscanf (offset_str, "%lf", &tx_mhz) != 1) {
+badtx:  fprintf (stderr, "Bad transmit frequency.\n");
+        return 0;
+    }
+    if (offset_str[0] == '-' || offset_str[0] == '+')
+        tx_mhz += rx_mhz;
+    if (! is_valid_frequency (tx_mhz))
+        goto badtx;
+
+    tmode = encode_squelch (rq_str, tq_str, &tone, &dtcs);
+
+    if (strcasecmp ("High", power_str) == 0) {
+        power = 0;
+    } else if (strcasecmp ("Mid", power_str) == 0) {
+        power = 1;
+    } else if (strcasecmp ("Low", power_str) == 0) {
+        power = 2;
+    } else {
+        fprintf (stderr, "Bad power level.\n");
+        return 0;
+    }
+
+    if (strcasecmp ("Wide", wide_str) == 0) {
+        wide = 1;
+        isam = 0;
+    } else if (strcasecmp ("Narrow", wide_str) == 0) {
+        wide = 0;
+        isam = 0;
+    } else if (strcasecmp ("AM", wide_str) == 0) {
+        wide = 1;
+        isam = 1;
+    } else {
+        fprintf (stderr, "Bad modulation width.\n");
+        return 0;
+    }
+
+    setup_home (band, rx_mhz, tx_mhz, tmode, tone, dtcs, power, wide, isam);
     return 1;
 }
 
 static int parse_pms (int first_row, char *line)
 {
-    // TODO
+    char num_str[256], lower_str[256], upper_str[256];
+    int num;
+    double lower_mhz, upper_mhz;
+
+    if (sscanf (line, "%s %s %s", num_str, lower_str, upper_str) != 3)
+        return 0;
+
+    num = atoi (num_str);
+    if (num < 1 || num > NPMS) {
+        fprintf (stderr, "Bad PMS number.\n");
+        return 0;
+    }
+    if (sscanf (lower_str, "%lf", &lower_mhz) != 1 ||
+        ! is_valid_frequency (lower_mhz)) {
+        fprintf (stderr, "Bad lower frequency.\n");
+        return 0;
+    }
+    if (sscanf (upper_str, "%lf", &upper_mhz) != 1 ||
+        ! is_valid_frequency (upper_mhz)) {
+        fprintf (stderr, "Bad upper frequency.\n");
+        return 0;
+    }
+
+    if (first_row) {
+        // On first entry, erase the PMS table.
+        int i;
+        for (i=0; i<NPMS; i++) {
+            setup_pms (i, 0, 0);
+        }
+    }
+    setup_pms (num-1, lower_mhz, upper_mhz);
     return 1;
 }
 
