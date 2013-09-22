@@ -441,7 +441,7 @@ static int freq_to_hz (uint8_t *bcd)
 }
 
 //
-// Convert an integet frequency value (in Hertz) 
+// Convert an integet frequency value (in Hertz)
 // to a 3-byte binary coded decimal format.
 //
 static void hz_to_freq (int hz, uint8_t *bcd)
@@ -750,12 +750,14 @@ static void setup_pms (int i, double lower_mhz, double upper_mhz)
     memory_channel_t *ch = i*2 + (memory_channel_t*) &radio_mem[OFFSET_PMS];
 
     if (! lower_mhz) {
-        ch->used = 0;
+        ch[0].used = 0;
+        ch[1].used = 0;
         return;
     }
-    ch->used = 1;
     hz_to_freq ((int) (lower_mhz * 1000000.0), ch[0].rxfreq);
+    ch[0].used = 1;
     hz_to_freq ((int) (upper_mhz * 1000000.0), ch[1].rxfreq);
+    ch[1].used = 1;
 }
 
 //
@@ -929,7 +931,6 @@ static void ft60r_print_config (FILE *out, int verbose)
         else
             fprintf (out, "%8.4f", lower_hz / 1000000.0);
         if (upper_hz == 0)
-
             fprintf (out, " -\n");
         else
             fprintf (out, " %8.4f\n", upper_hz / 1000000.0);
