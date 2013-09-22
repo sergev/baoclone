@@ -67,6 +67,9 @@ enum {
     STEP_100,
 };
 
+//
+// Data structure for a memory channel.
+//
 typedef struct {
     uint8_t     duplex    : 4,  // Repeater mode
 #define D_SIMPLEX       0
@@ -101,6 +104,9 @@ typedef struct {
     uint8_t     _u5 [3];
 } memory_channel_t;
 
+//
+// Data structure for a channel name.
+//
 typedef struct {
     uint8_t     name[6];
     uint8_t     _u1       : 7,
@@ -288,7 +294,8 @@ again:
     fprintf (stderr, "Press <Enter> to continue: ");
     fflush (stderr);
     serial_flush (radio_port);
-    fgets (buf, sizeof(buf), stdin);
+    if (! fgets (buf, sizeof(buf), stdin))
+	/*ignore*/;
     fprintf (stderr, "Sending data... ");
     fflush (stderr);
 
@@ -417,8 +424,8 @@ static int encode_squelch (char *rx, char *tx, int *tone, int *dtcs)
 }
 
 //
-// Convert 32-bit value from binary coded decimal
-// to integer format (8 digits).
+// Convert a 3-byte frequency value from binary coded decimal
+// to integer format (in Hertz).
 //
 static int freq_to_hz (uint8_t *bcd)
 {
@@ -433,6 +440,10 @@ static int freq_to_hz (uint8_t *bcd)
     return hz;
 }
 
+//
+// Convert an integet frequency value (in Hertz) 
+// to a 3-byte binary coded decimal format.
+//
 static void hz_to_freq (int hz, uint8_t *bcd)
 {
     bcd[0] = (hz / 2500      % 4)  << 6 |
@@ -443,6 +454,9 @@ static void hz_to_freq (int hz, uint8_t *bcd)
              (hz / 10000     % 10);
 }
 
+//
+// Get a bitmask of banks for a given channel.
+//
 static int decode_banks (int i)
 {
     int b, mask, data;
@@ -456,7 +470,10 @@ static int decode_banks (int i)
     return mask;
 }
 
-static int setup_banks (int i, int mask)
+//
+// Set the bitmask of banks for a given channel.
+//
+static void setup_banks (int i, int mask)
 {
     int b;
     unsigned char *data;
@@ -468,11 +485,10 @@ static int setup_banks (int i, int mask)
         else
             *data &= ~(1 << (i & 7));
     }
-    return mask;
 }
 
 //
-// Extract channel name; strip trailing FF's.
+// Extract channel name.
 //
 static void decode_name (int i, char *name)
 {
@@ -495,6 +511,11 @@ static void decode_name (int i, char *name)
     }
 }
 
+//
+// Encode a character from ASCII to internal index.
+// Replace underscores by spaces.
+// Make all letters uppercase.
+//
 static int encode_char (int c)
 {
     int i;
@@ -510,6 +531,9 @@ static int encode_char (int c)
     return OPENBOX;
 }
 
+//
+// Set a name for the channel.
+//
 static void encode_name (int i, char *name)
 {
     memory_name_t *nm = i + (memory_name_t*) &radio_mem[OFFSET_NAMES];
@@ -533,6 +557,14 @@ static void encode_name (int i, char *name)
     }
 }
 
+//
+// Get all parameters for a given channel.
+// Seek selects the type of channel:
+//  OFFSET_VFO      - VFO channel, 0..4
+//  OFFSET_HOME     - home channel, 0..4
+//  OFFSET_CHANNELS - memory channel, 0..999
+//  OFFSET_PMS      - programmable memory scan, i=0..99
+//
 static void decode_channel (int i, int seek, char *name,
     int *rx_hz, int *tx_hz, int *rx_ctcs, int *tx_ctcs,
     int *rx_dcs, int *tx_dcs, int *power, int *wide,
@@ -611,6 +643,9 @@ static void decode_channel (int i, int seek, char *name,
         *banks = decode_banks (i);
 }
 
+//
+// Set the parameters for a given memory channel.
+//
 static void setup_channel (int i, char *name, double rx_mhz, double tx_mhz,
     int tmode, int tone, int dtcs, int power, int wide, int scan, int isam, int banks)
 {
@@ -658,6 +693,10 @@ static void setup_channel (int i, char *name, double rx_mhz, double tx_mhz,
     encode_name (i, name);
 }
 
+//
+// Set the parameters for a given home channel.
+// Band selects the channel: 144, 250, 350, 430 or 850.
+//
 static void setup_home (int band, double rx_mhz, double tx_mhz,
     int tmode, int tone, int dtcs, int power, int wide, int isam)
 {
@@ -703,6 +742,9 @@ static void setup_home (int band, double rx_mhz, double tx_mhz,
     ch->_u5[0] = ch->_u5[1] = ch->_u5[2] = 0;
 }
 
+//
+// Set the parameters for a given PMS pair.
+//
 static void setup_pms (int i, double lower_mhz, double upper_mhz)
 {
     memory_channel_t *ch = i*2 + (memory_channel_t*) &radio_mem[OFFSET_PMS];
@@ -716,6 +758,9 @@ static void setup_pms (int i, double lower_mhz, double upper_mhz)
     hz_to_freq ((int) (upper_mhz * 1000000.0), ch[1].rxfreq);
 }
 
+//
+// Print the transmit offset or frequency.
+//
 static void print_offset (FILE *out, int rx_hz, int tx_hz)
 {
     int delta = tx_hz - rx_hz;
@@ -739,6 +784,9 @@ static void print_offset (FILE *out, int rx_hz, int tx_hz)
     }
 }
 
+//
+// Print the squelch value: CTCSS or DCS.
+//
 static void print_squelch (FILE *out, int ctcs, int dcs)
 {
     if      (ctcs)    fprintf (out, "%5.1f", ctcs / 10.0);
@@ -746,6 +794,9 @@ static void print_squelch (FILE *out, int ctcs, int dcs)
     else              fprintf (out, "   - ");
 }
 
+//
+// Print the list of channel banks.
+//
 static char *format_banks (int mask)
 {
     static char buf [16];
@@ -935,6 +986,9 @@ static void ft60r_save_image (FILE *img)
     fwrite (&radio_mem[0], 1, MEMSZ, img);
 }
 
+//
+// Parse the scalar parameter.
+//
 static void ft60r_parse_parameter (char *param, char *value)
 {
     if (strcasecmp ("Radio", param) == 0) {
@@ -961,6 +1015,9 @@ static int is_valid_frequency (int mhz)
 }
 
 #if 0
+//
+// Return the default step for a given frequency.
+//
 static int default_step (double mhz)
 {
     static const struct {
@@ -999,6 +1056,9 @@ static int default_step (double mhz)
 }
 #endif
 
+//
+// Parse the 'banks' parameter value.
+//
 static int encode_banks (char *str)
 {
     int mask;
@@ -1017,7 +1077,7 @@ static int encode_banks (char *str)
 }
 
 //
-// Parse one line of table data.
+// Parse one line of memory channel table.
 // Start_flag is 1 for the first table row.
 // Return 0 on failure.
 //
@@ -1107,6 +1167,10 @@ badtx:  fprintf (stderr, "Bad transmit frequency.\n");
     return 1;
 }
 
+//
+// Parse one line of home channel table.
+// Return 0 on failure.
+//
 static int parse_home (int first_row, char *line)
 {
     char band_str[256], rxfreq_str[256], offset_str[256];
@@ -1171,6 +1235,10 @@ badtx:  fprintf (stderr, "Bad transmit frequency.\n");
     return 1;
 }
 
+//
+// Parse one line of PMS table.
+// Return 0 on failure.
+//
 static int parse_pms (int first_row, char *line)
 {
     char num_str[256], lower_str[256], upper_str[256];
@@ -1222,6 +1290,10 @@ static int ft60r_parse_header (char *line)
     return 0;
 }
 
+//
+// Parse one line of table data.
+// Return 0 on failure.
+//
 static int ft60r_parse_row (int table_id, int first_row, char *line)
 {
     switch (table_id) {

@@ -157,7 +157,7 @@ int serial_open (char *portname)
     SetCommTimeouts (fd, &timo);
 
     // Flush received data pending on the port.
-    PurgeComm ((HANDLE) radio_port, PURGE_RXCLEAR);
+    PurgeComm (fd, PURGE_RXCLEAR);
     return (int) fd;
 #else
     int fd;
