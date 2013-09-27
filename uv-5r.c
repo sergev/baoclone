@@ -97,6 +97,19 @@ static void aged_print_version (FILE *out)
 }
 
 //
+// Check that the radio does support this frequency.
+//
+static int is_valid_frequency (int mhz)
+{
+    if (mhz >= 136 && mhz <= 174)
+        return 1;
+    if (mhz >= 400 && mhz <= 520)
+        return 1;
+    return 0;
+}
+
+
+//
 // Read block of data, up to 64 bytes.
 // Halt the program on any error.
 //
@@ -374,7 +387,14 @@ static void setup_channel (int i, char *name, double rx_mhz, double tx_mhz,
     memory_channel_t *ch = i + (memory_channel_t*) radio_mem;
 
     ch->rxfreq = int_to_bcd ((int) (rx_mhz * 100000.0 + 0.5));
-    ch->txfreq = int_to_bcd ((int) (tx_mhz * 100000.0 + 0.5));
+
+    if (is_valid_frequency (tx_mhz)) {
+        ch->txfreq = int_to_bcd ((int) (tx_mhz * 100000.0 + 0.5));
+    } else {
+        // disable TX
+        ch->txfreq = 0xffffffff;
+    }
+
     ch->rxtone = rq;
     ch->txtone = tq;
     ch->lowpower = lowpower;
@@ -682,7 +702,7 @@ static void print_config (FILE *out, int verbose, int is_aged)
         fprintf (out, "# 1) Channel number: 0-%d\n", NCHAN-1);
         fprintf (out, "# 2) Name: up to 7 characters, no spaces\n");
         fprintf (out, "# 3) Receive frequency in MHz\n");
-        fprintf (out, "# 4) Offset of transmit frequency in MHz\n");
+        fprintf (out, "# 4) Offset of transmit frequency in MHz, or '-' to disable transmit\n");
         fprintf (out, "# 5) Squelch tone for receive, or '-' to disable\n");
         fprintf (out, "# 6) Squelch tone for transmit, or '-' to disable\n");
         fprintf (out, "# 7) Transmit power: Low, High\n");
@@ -708,7 +728,13 @@ static void print_config (FILE *out, int verbose, int is_aged)
 
         fprintf (out, "%5d   %-7s %8.4f ",
             i, name[0] ? name : "-", rx_hz / 1000000.0);
-        print_offset (out, tx_hz - rx_hz);
+
+        if (is_valid_frequency (tx_hz / 1000000.0)) {
+            print_offset (out, tx_hz - rx_hz);
+        } else {
+            fprintf (out, " -      ");
+        }
+
         fprintf (out, " ");
         print_squelch (out, rx_ctcs, rx_dcs);
         fprintf (out, "   ");
@@ -1148,18 +1174,6 @@ static int uv5r_parse_header (char *line)
 }
 
 //
-// Check that the radio does support this frequency.
-//
-static int is_valid_frequency (int mhz)
-{
-    if (mhz >= 136 && mhz <= 174)
-        return 1;
-    if (mhz >= 400 && mhz <= 520)
-        return 1;
-    return 0;
-}
-
-//
 // Parse one row in the Channels table.
 // Return 0 on failure.
 // Channel Name    Receive  TxOffset R-Squel T-Squel Power FM     Scan BCL ID6 PTTID
@@ -1190,7 +1204,10 @@ static int parse_channel (int first_row, char *line)
         fprintf (stderr, "Bad receive frequency.\n");
         return 0;
     }
-    if (sscanf (offset_str, "%lf", &txoff_mhz) != 1 ||
+    if (strcmp("-", offset_str) == 0) {
+        // tx disabled; set offset outside range so setup_channel will disable it.
+        txoff_mhz = -999.9;
+    } else if (sscanf (offset_str, "%lf", &txoff_mhz) != 1 ||
         ! is_valid_frequency (rx_mhz + txoff_mhz))
     {
         fprintf (stderr, "Bad transmit offset.\n");
