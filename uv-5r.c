@@ -391,6 +391,8 @@ static void setup_channel (int i, char *name, double rx_mhz, double tx_mhz,
     ch->_u5 = 0;
 
     // Copy channel name.
+    if (! name || ! *name || *name == '-')
+        name = "\xff\xff\xff\xff\xff\xff\xff";
     strncpy ((char*) &radio_mem[0x1000 + i*16], name, 7);
 }
 
@@ -704,7 +706,8 @@ static void print_config (FILE *out, int verbose, int is_aged)
             continue;
         }
 
-        fprintf (out, "%5d   %-7s %8.4f ", i, name, rx_hz / 1000000.0);
+        fprintf (out, "%5d   %-7s %8.4f ",
+            i, name[0] ? name : "-", rx_hz / 1000000.0);
         print_offset (out, tx_hz - rx_hz);
         fprintf (out, " ");
         print_squelch (out, rx_ctcs, rx_dcs);

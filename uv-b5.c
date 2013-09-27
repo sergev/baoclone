@@ -590,7 +590,8 @@ static void uvb5_print_config (FILE *out, int verbose)
             continue;
         }
 
-        fprintf (out, "%5d   %-6s %8.4f ", i, name, rx_hz / 1000000.0);
+        fprintf (out, "%5d   %-6s %8.4f ",
+            i, name[0] ? name : "-", rx_hz / 1000000.0);
         print_offset (out, txoff_hz);
         fprintf (out, " ");
         print_squelch (out, rx_ctcs, rx_dcs);
@@ -1035,6 +1036,8 @@ static int parse_channel (int first_row, char *line)
             erase_channel (i);
         }
     }
+    if (name[0] == '-')
+        name[0] = 0;
     setup_channel (num, name, rx_mhz, txoff_mhz, rq, tq, rpol, tpol,
         0, lowpower, wide, scan, pttid, bcl, compand, rev);
     return 1;
