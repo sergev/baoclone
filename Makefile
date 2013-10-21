@@ -1,5 +1,4 @@
 CC		= gcc -m32
-#CC              = i586-mingw32msvc-gcc -m32
 
 CFLAGS		= -g -O -Wall -Werror
 LDFLAGS		=
@@ -17,6 +16,10 @@ clean:
 
 install:	baoclone
 		install -c -s baoclone /usr/local/bin/baoclone
+
+baoclone.linux: baoclone
+		cp -p $< $@
+		strip $@
 
 ###
 bf-888s.o: bf-888s.c radio.h util.h
