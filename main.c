@@ -31,29 +31,29 @@
 #include "radio.h"
 #include "util.h"
 
-const char version[] = "1.3";
-const char copyright[] = "Copyright (C) 2013 Serge Vakulenko KK6ABQ";
+const char version[] = VERSION;
+const char *copyright;
 
 extern char *optarg;
 extern int optind;
 
 void usage ()
 {
-    fprintf (stderr, "BaoClone Utility, Version %s, %s\n", version, copyright);
-    fprintf (stderr, "Usage:\n");
-    fprintf (stderr, "    baoclone [-v] port\n");
-    fprintf (stderr, "                          Save device binary image to file 'device.img',\n");
-    fprintf (stderr, "                          and text configuration to 'device.conf'.\n");
-    fprintf (stderr, "    baoclone -w [-v] port file.img\n");
-    fprintf (stderr, "                          Write image to device.\n");
-    fprintf (stderr, "    baoclone -c [-v] port file.conf\n");
-    fprintf (stderr, "                          Configure device from text file.\n");
-    fprintf (stderr, "    baoclone file.img\n");
-    fprintf (stderr, "                          Display configuration from image file.\n");
-    fprintf (stderr, "Options:\n");
-    fprintf (stderr, "    -w                    Write image to device.\n");
-    fprintf (stderr, "    -c                    Configure device from text file.\n");
-    fprintf (stderr, "    -v                    Trace serial protocol.\n");
+    fprintf (stderr, _("BaoClone Utility, Version %s, %s\n"), version, copyright);
+    fprintf (stderr, _("Usage:\n"));
+    fprintf (stderr, _("    baoclone [-v] port\n"));
+    fprintf (stderr, _("                          Save device binary image to file 'device.img',\n"));
+    fprintf (stderr, _("                          and text configuration to 'device.conf'.\n"));
+    fprintf (stderr, _("    baoclone -w [-v] port file.img\n"));
+    fprintf (stderr, _("                          Write image to device.\n"));
+    fprintf (stderr, _("    baoclone -c [-v] port file.conf\n"));
+    fprintf (stderr, _("                          Configure device from text file.\n"));
+    fprintf (stderr, _("    baoclone file.img\n"));
+    fprintf (stderr, _("                          Display configuration from image file.\n"));
+    fprintf (stderr, _("Options:\n"));
+    fprintf (stderr, _("    -w                    Write image to device.\n"));
+    fprintf (stderr, _("    -c                    Configure device from text file.\n"));
+    fprintf (stderr, _("    -v                    Trace serial protocol.\n"));
     exit (-1);
 }
 
@@ -61,6 +61,18 @@ int main (int argc, char **argv)
 {
     int write_flag = 0, config_flag = 0;
 
+    // Set locale and message catalogs.
+    setlocale (LC_ALL, "");
+#ifdef MINGW32
+    // Files with localized messages should be placed in
+    // in c:/Program Files/baoclone/ directory.
+    bindtextdomain ("baoclone", "c:/Program Files/baoclone");
+#else
+    bindtextdomain ("baoclone", "/usr/local/share/locale");
+#endif
+    textdomain ("baoclone");
+
+    copyright = _("Copyright (C) 2013 Serge Vakulenko KK6ABQ");
     verbose = 0;
     for (;;) {
         switch (getopt (argc, argv, "vcw")) {

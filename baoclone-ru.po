@@ -1,0 +1,97 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+
+msgid ""
+msgstr ""
+"Project-Id-Version: BaoClone 1.4\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2013-11-01 19:10-0700\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: main.c:42
+#, c-format
+msgid "BaoClone Utility, Version %s, %s\n"
+msgstr "Утилита BaoClone, версия %s, %s\n"
+
+#: main.c:43
+#, c-format
+msgid "Usage:\n"
+msgstr "Вызов:\n"
+
+#: main.c:44
+#, c-format
+msgid "    baoclone [-v] port\n"
+msgstr ""
+
+#: main.c:45
+#, c-format
+msgid "                          Save device binary image to file 'device.img',\n"
+msgstr "                          Запись бинарного образа устройства в файл 'device.img',\n"
+
+#: main.c:46
+#, c-format
+msgid "                          and text configuration to 'device.conf'.\n"
+msgstr "                          и текстовой конфигурации в 'device.conf'.\n"
+
+#: main.c:47
+#, c-format
+msgid "    baoclone -w [-v] port file.img\n"
+msgstr ""
+
+#: main.c:48
+#, c-format
+msgid "                          Write image to device.\n"
+msgstr "                          Запись образа в устройство.\n"
+
+#: main.c:49
+#, c-format
+msgid "    baoclone -c [-v] port file.conf\n"
+msgstr ""
+
+#: main.c:50
+#, c-format
+msgid "                          Configure device from text file.\n"
+msgstr "                          Конфигурирование устройства из текстового файла.\n"
+
+#: main.c:51
+#, c-format
+msgid "    baoclone file.img\n"
+msgstr ""
+
+#: main.c:52
+#, c-format
+msgid "                          Display configuration from image file.\n"
+msgstr "                          Отображение конфигурации из бинарного образа.\n"
+
+#: main.c:53
+#, c-format
+msgid "Options:\n"
+msgstr "Флаги:\n"
+
+#: main.c:54
+#, c-format
+msgid "    -w                    Write image to device.\n"
+msgstr "    -w                    Запись образа в устройство.\n"
+
+#: main.c:55
+#, c-format
+msgid "    -c                    Configure device from text file.\n"
+msgstr "    -c                    Конфигурирование устройства из текстового файла.\n"
+
+#: main.c:56
+#, c-format
+msgid "    -v                    Trace serial protocol.\n"
+msgstr "    -v                    Трассировка последовательного протокола.\n"
+
+#: main.c:75
+msgid "Copyright (C) 2013 Serge Vakulenko KK6ABQ"
+msgstr "Copyright (C) 2013 Сергей Вакуленко KK6ABQ"

@@ -27,10 +27,16 @@
  */
 
 //
+// Localization.
+//
+#include <libintl.h>
+#define _(str) gettext (str)
+
+//
 // Program version.
 //
 extern const char version[];
-extern const char copyright[];
+extern const char *copyright;
 
 //
 // Trace data i/o via the serial port.
