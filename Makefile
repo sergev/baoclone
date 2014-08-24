@@ -8,6 +8,10 @@ OBJS		= main.o util.o radio.o uv-5r.o uv-b5.o bf-888s.o ft-60r.o
 SRCS		= main.c util.c radio.c uv-5r.c uv-b5.c bf-888s.c ft-60r.c
 LIBS            =
 
+# Mac OS X
+CFLAGS          += -I/opt/local/include
+LIBS            += -L/opt/local/lib -lintl
+
 all:		baoclone
 
 baoclone:	$(OBJS)
