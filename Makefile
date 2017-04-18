@@ -1,4 +1,4 @@
-CC		= gcc -m32
+CC		= gcc -m64
 
 VERSION         = 1.4
 CFLAGS		= -g -O -Wall -Werror -DVERSION='"$(VERSION)"'
@@ -9,8 +9,8 @@ SRCS		= main.c util.c radio.c uv-5r.c uv-b5.c bf-888s.c ft-60r.c
 LIBS            =
 
 # Mac OS X
-CFLAGS          += -I/opt/local/include
-LIBS            += -L/opt/local/lib -lintl
+CFLAGS          += -I/usr/local/opt/gettext/include
+LIBS            += -L/usr/local/opt/gettext/lib -lintl
 
 all:		baoclone
 
