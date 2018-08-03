@@ -1,16 +1,17 @@
 CC		= gcc -m64
 
-VERSION         = 1.4
-CFLAGS		= -g -O -Wall -Werror -DVERSION='"$(VERSION)"'
+VERSION         = 1.5
+GITCOUNT        = $(shell git rev-list HEAD --count)
+CFLAGS		= -g -O -Wall -Werror -DVERSION='"$(VERSION).$(GITCOUNT)"'
 LDFLAGS		=
 
-OBJS		= main.o util.o radio.o uv-5r.o uv-b5.o bf-888s.o ft-60r.o
-SRCS		= main.c util.c radio.c uv-5r.c uv-b5.c bf-888s.c ft-60r.c
+OBJS		= main.o util.o radio.o uv-5r.o uv-b5.o bf-888s.o
+SRCS		= main.c util.c radio.c uv-5r.c uv-b5.c bf-888s.c
 LIBS            =
 
 # Mac OS X
-CFLAGS          += -I/usr/local/opt/gettext/include
-LIBS            += -L/usr/local/opt/gettext/lib -lintl
+#CFLAGS          += -I/usr/local/opt/gettext/include
+#LIBS            += -L/usr/local/opt/gettext/lib -lintl
 
 all:		baoclone
 
@@ -41,7 +42,6 @@ baoclone-ru-cp866.mo: baoclone-ru.po
 
 ###
 bf-888s.o: bf-888s.c radio.h util.h
-ft-60r.o: ft-60r.c radio.h util.h
 main.o: main.c radio.h util.h
 radio.o: radio.c radio.h util.h
 util.o: util.c util.h

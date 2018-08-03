@@ -29,14 +29,16 @@
 //
 // Localization.
 //
-#if 1
-#include <libintl.h>
-#define _(str) gettext (str)
+#if 0
+    /* Use gettext(). */
+    #include <libintl.h>
+    #define _(str)                      gettext (str)
 #else
-#define _(str)              str
-#define setlocale(x,y)      /* empty */
-#define bindtextdomain(x,y) /* empty */
-#define textdomain(x)       /* empty */
+    /* No localization. */
+    #define _(str)                      str
+    #define textdomain(name)            /* empty */
+    #define bindtextdomain(name, dir)   /* empty */
+    #define setlocale(category, locale) /* empty */
 #endif
 
 //

@@ -48,6 +48,8 @@ void usage ()
     fprintf (stderr, _("                          Write image to device.\n"));
     fprintf (stderr, _("    baoclone -c [-v] port file.conf\n"));
     fprintf (stderr, _("                          Configure device from text file.\n"));
+    fprintf (stderr, _("    baoclone -c [-v] file.img file.conf\n"));
+    fprintf (stderr, _("                          Apply text configuration to the image.\n"));
     fprintf (stderr, _("    baoclone file.img\n"));
     fprintf (stderr, _("                          Display configuration from image file.\n"));
     fprintf (stderr, _("Options:\n"));
@@ -72,7 +74,7 @@ int main (int argc, char **argv)
 #endif
     textdomain ("baoclone");
 
-    copyright = _("Copyright (C) 2013 Serge Vakulenko KK6ABQ");
+    copyright = _("Copyright (C) 2013-2018 Serge Vakulenko KK6ABQ");
     verbose = 0;
     for (;;) {
         switch (getopt (argc, argv, "vcw")) {
@@ -107,17 +109,26 @@ int main (int argc, char **argv)
         radio_disconnect();
 
     } else if (config_flag) {
-        // Update device from text config file.
         if (argc != 2)
             usage();
 
-        radio_connect (argv[0]);
-        radio_download();
-        radio_print_version (stdout);
-        radio_save_image ("backup.img");
-        radio_parse_config (argv[1]);
-        radio_upload (1);
-        radio_disconnect();
+        if (is_file (argv[0])) {
+            // Apply text config to image file.
+            radio_read_image (argv[0]);
+            radio_print_version (stdout);
+            radio_parse_config (argv[1]);
+            radio_save_image ("device.img");
+
+        } else {
+            // Update device from text config file.
+            radio_connect (argv[0]);
+            radio_download();
+            radio_print_version (stdout);
+            radio_save_image ("backup.img");
+            radio_parse_config (argv[1]);
+            radio_upload (1);
+            radio_disconnect();
+        }
 
     } else {
         if (argc != 1)

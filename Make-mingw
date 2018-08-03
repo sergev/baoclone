@@ -1,10 +1,20 @@
 CC		= gcc -m32
 
-CFLAGS		= -g -O -Wall -DMINGW32 -Werror
+VERSION         = 1.5
+GITCOUNT        = $(shell git rev-list HEAD --count)
+CFLAGS		= -g -O -Wall -DMINGW32 -Werror -DVERSION='"$(VERSION).$(GITCOUNT)"'
 LDFLAGS		= -s
 
-OBJS		= main.o util.o radio.o uv-5r.o uv-b5.o bf-888s.o ft-60r.o
+OBJS		= main.o util.o radio.o uv-5r.o uv-b5.o bf-888s.o
 LIBS            =
+
+# Compiling Windows binary from Linux
+ifeq (/usr/bin/i586-mingw32msvc-gcc,$(wildcard /usr/bin/i586-mingw32msvc-gcc))
+    CC          = i586-mingw32msvc-gcc
+endif
+ifeq (/usr/bin/i686-w64-mingw32-gcc,$(wildcard /usr/bin/i686-w64-mingw32-gcc))
+    CC          = i686-w64-mingw32-gcc
+endif
 
 all:		baoclone.exe
 
@@ -13,7 +23,6 @@ baoclone.exe:	$(OBJS)
 
 ###
 bf-888s.o: bf-888s.c radio.h util.h
-ft-60r.o: ft-60r.c radio.h util.h
 main.o: main.c radio.h util.h
 radio.o: radio.c radio.h util.h
 util.o: util.c util.h

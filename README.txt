@@ -5,7 +5,6 @@ programming cable.  Supported radios:
  * Baofeng UV-5R
  * Baofeng UV-B5
  * Baofeng BF-888S
- * Yaesu FT-60R
 
 Web site of the project: https://code.google.com/p/baoclone/wiki/About
 
@@ -56,8 +55,7 @@ You can use these files as examples or templates:
  * bf-888s-factory.conf   - Factory configuration for BF-888S.
  * uv-5r-sunnyvale.conf,
    uv-b5-sunnyvale.conf,
-   bf-888s-sunnyvale.conf,
-   ft-60r-sunnyvale.conf  - Configurations of my personal handhelds
+   bf-888s-sunnyvale.conf - Configurations of my personal handhelds
                             for south SF Bay Area, CA.
 
 
