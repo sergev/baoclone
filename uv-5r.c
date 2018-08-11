@@ -380,6 +380,46 @@ static void decode_channel (int i, char *name, int *rx_hz, int *tx_hz,
     *pttid = ch->pttidbot | (ch->pttideot << 1);
 }
 
+//
+// Encode a character from ASCII to internal index.
+//
+static int encode_char(int c)
+{
+    // Replace underscore by space.
+    if (c == '_')
+        c = ' ';
+
+    // Only uppercase letters.
+    if (c >= 'a' && c <= 'z')
+        c += 'A' - 'a';
+
+    if (c > '~')
+        c = '~';
+    return c;
+}
+
+//
+// Set a name for the channel.
+//
+static void encode_name(int i, char *name)
+{
+    unsigned char *data = &radio_mem[0x1000 + i*16];
+    int n;
+
+    if (name && *name && *name != '-') {
+        // Setup channel name.
+        for (n=0; n<7 && name[n]; n++) {
+            data[n] = encode_char(name[n]);
+        }
+        for (; n<7; n++)
+            data[n] = ' ';
+    } else {
+        // Clear name.
+        for (n=0; n<7; n++)
+            data[n] = 0xff;
+    }
+}
+
 static void setup_channel (int i, char *name, double rx_mhz, double tx_mhz,
     int rq, int tq, int lowpower, int wide, int scan, int bcl, int scode,
     int pttid)
@@ -410,10 +450,7 @@ static void setup_channel (int i, char *name, double rx_mhz, double tx_mhz,
     ch->_u4 = 0;
     ch->_u5 = 0;
 
-    // Copy channel name.
-    if (! name || ! *name || *name == '-')
-        name = "\xff\xff\xff\xff\xff\xff\xff";
-    strncpy ((char*) &radio_mem[0x1000 + i*16], name, 7);
+    encode_name(i, name);
 }
 
 static void erase_channel (int i)
