@@ -53,10 +53,12 @@ You can use these files as examples or templates:
  * uv-5r-factory.conf     - Factory configuration for UV-5R.
  * uv-b5-factory.conf     - Factory configuration for UV-B5.
  * bf-888s-factory.conf   - Factory configuration for BF-888S.
+ * bf-t1-factory.conf     - Factory configuration for BF-T1.
  * uv-5r-sunnyvale.conf,
-   uv-b5-sunnyvale.conf,
-   bf-888s-sunnyvale.conf - Configurations of my personal handhelds
+   uv-b5-sunnyvale.conf   - Configurations of my personal handhelds
                             for south SF Bay Area, CA.
+ * bf-t1-gmrs.conf,
+   bf-888s-gmrs.conf      - Configurations for [GMRS service](https://en.wikipedia.org/wiki/General_Mobile_Radio_Service)
 
 
 === Sources ===

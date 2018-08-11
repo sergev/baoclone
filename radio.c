@@ -127,7 +127,7 @@ void radio_connect (char *port_name)
 {
     static const unsigned char UV5R_MODEL_AGED[] = "\x50\xBB\xFF\x01\x25\x98\x4D";
     static const unsigned char UV5R_MODEL_291[] = "\x50\xBB\xFF\x20\x12\x07\x25";
-    static const unsigned char UVB5_MODEL[] = "PROGRAM";
+    static const unsigned char UVB5_MODEL[] = "\x05PROGRAM";
     int retry;
 
     fprintf (stderr, "Connect to %s.\n", port_name);
@@ -144,6 +144,10 @@ void radio_connect (char *port_name)
             }
             if (strncmp ((char*)radio_ident, "P3107", 5) == 0) {
                 device = &radio_bf888s; // Baofeng BF-888S
+                break;
+            }
+            if (strncmp ((char*)radio_ident, " BF9100S", 8) == 0) {
+                device = &radio_bft1;   // Baofeng BF-T1
                 break;
             }
             printf ("Unrecognized identifier: ");
@@ -232,6 +236,9 @@ void radio_read_image (char *filename)
         break;
     case 992:
         device = &radio_bf888s;
+        break;
+    case 2048:
+        device = &radio_bft1;
         break;
     default:
         fprintf (stderr, "%s: Unrecognized file size %u bytes.\n",

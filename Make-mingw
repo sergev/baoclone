@@ -5,7 +5,7 @@ GITCOUNT        = $(shell git rev-list HEAD --count)
 CFLAGS		= -g -O -Wall -DMINGW32 -Werror -DVERSION='"$(VERSION).$(GITCOUNT)"'
 LDFLAGS		= -s
 
-OBJS		= main.o util.o radio.o uv-5r.o uv-b5.o bf-888s.o
+OBJS		= main.o util.o radio.o uv-5r.o uv-b5.o bf-888s.o bf-t1.o
 LIBS            =
 
 # Compiling Windows binary from Linux
@@ -23,6 +23,7 @@ baoclone.exe:	$(OBJS)
 
 ###
 bf-888s.o: bf-888s.c radio.h util.h
+bf-t1.o: bf-t1.c radio.h util.h
 main.o: main.c radio.h util.h
 radio.o: radio.c radio.h util.h
 util.o: util.c util.h

@@ -5,8 +5,8 @@ GITCOUNT        = $(shell git rev-list HEAD --count)
 CFLAGS		= -g -O -Wall -Werror -DVERSION='"$(VERSION).$(GITCOUNT)"'
 LDFLAGS		=
 
-OBJS		= main.o util.o radio.o uv-5r.o uv-b5.o bf-888s.o
-SRCS		= main.c util.c radio.c uv-5r.c uv-b5.c bf-888s.c
+OBJS		= main.o util.o radio.o uv-5r.o uv-b5.o bf-888s.o bf-t1.o
+SRCS		= main.c util.c radio.c uv-5r.c uv-b5.c bf-888s.c bf-t1.c
 LIBS            =
 
 # Mac OS X
@@ -42,6 +42,7 @@ baoclone-ru-cp866.mo: baoclone-ru.po
 
 ###
 bf-888s.o: bf-888s.c radio.h util.h
+bf-t1.o: bf-t1.c radio.h util.h
 main.o: main.c radio.h util.h
 radio.o: radio.c radio.h util.h
 util.o: util.c util.h

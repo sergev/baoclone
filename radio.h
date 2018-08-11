@@ -92,6 +92,7 @@ extern radio_device_t radio_uv5r;       // Baofeng UV-5R, UV-5RA
 extern radio_device_t radio_uv5r_aged;  // Baofeng UV-5R with old firmware
 extern radio_device_t radio_uvb5;       // Baofeng UV-B5, UV-B6
 extern radio_device_t radio_bf888s;     // Baofeng BF-888S
+extern radio_device_t radio_bft1;       // Baofeng BF-T1
 
 //
 // Radio: memory contents.
