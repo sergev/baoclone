@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdint.h>
 #include <fcntl.h>
 #ifdef MINGW32
 #   include <windows.h>
@@ -349,6 +350,38 @@ int int_to_bcd (int val)
            ((val / 100)      % 10) << 8 |
            ((val / 10)       % 10) << 4 |
            (val              % 10);
+}
+
+//
+// Convert array of 8-bit values from binary coded decimal
+// to integer format (8 digits).
+//
+int bcd4_to_int(uint8_t bcd[4])
+{
+    return ((bcd[3] >> 4) & 15) * 10000000 +
+            (bcd[3]       & 15) * 1000000 +
+           ((bcd[2] >> 4) & 15) * 100000 +
+            (bcd[2]       & 15) * 10000 +
+           ((bcd[1] >> 4) & 15) * 1000 +
+            (bcd[1]       & 15) * 100 +
+           ((bcd[0] >> 4) & 15) * 10 +
+            (bcd[0]       & 15);
+}
+
+//
+// Convert binary coded decimal format (8 digits)
+// from integer to array of 8-bit values.
+//
+void int_to_bcd4(int val, uint8_t bcd[4])
+{
+    bcd[3] = ((val / 10000000) % 10) << 4 |
+             ((val / 1000000)  % 10);
+    bcd[2] = ((val / 100000)   % 10) << 4 |
+             ((val / 10000)    % 10);
+    bcd[1] = ((val / 1000)     % 10) << 4 |
+             ((val / 100)      % 10);
+    bcd[0] = ((val / 10)       % 10) << 4 |
+              (val             % 10);
 }
 
 //

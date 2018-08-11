@@ -121,6 +121,18 @@ int bcd_to_int (int bcd);
 int int_to_bcd (int val);
 
 //
+// Convert array of 8-bit values from binary coded decimal
+// to integer format (8 digits).
+//
+int bcd4_to_int(unsigned char bcd[4]);
+
+//
+// Convert binary coded decimal format (8 digits)
+// from integer to array of 8-bit values.
+//
+void int_to_bcd4(int val, unsigned char bcd[4]);
+
+//
 // Get a binary value of the parameter: On/Off,
 // Ignore case.
 //
