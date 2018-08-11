@@ -193,49 +193,64 @@ static void decode_squelch(int index, int pol, int *ctcs, int *dcs)
 }
 
 //
-// Convert squelch string to tone value in BCD format.
+// Convert squelch string to polarity/tone value in BCD format.
 // Four possible formats:
 // nnn.n - CTCSS frequency
 // DnnnN - DCS normal
 // DnnnI - DCS inverted
 // '-'   - Disabled
 //
-static int encode_squelch(char *str)
+static int encode_squelch (char *str, int *pol)
 {
     unsigned val;
 
     if (*str == 'D' || *str == 'd') {
         // DCS tone
         char *e;
-        val = strtol(++str, &e, 10);
-        if (val < 1 || val >= 999)
+        val = strtol (++str, &e, 10);
+
+        // Find a valid index in DCS table.
+        int i;
+        for (i=0; i<NDCS; i++)
+            if (DCS_CODES[i] == val)
+                break;
+        if (i >= NDCS)
             return 0;
 
+        val = i + 51;
         if (*e == 'N' || *e == 'n') {
-            val += 8000;
+            *pol = 0;
         } else if (*e == 'I' || *e == 'i') {
-            val += 12000;
+            *pol = 1;
         } else {
             return 0;
         }
     } else if (*str >= '0' && *str <= '9') {
         // CTCSS tone
         float hz;
-        if (sscanf(str, "%f", &hz) != 1)
+        if (sscanf (str, "%f", &hz) != 1)
             return 0;
 
         // Round to integer.
         val = hz * 10.0 + 0.5;
+        if (val < 0x0258)
+            return 0;
+
+        // Find a valid index in CTCSS table.
+        int i;
+        for (i=0; i<NCTCSS; i++)
+            if (CTCSS_TONES[i] == val)
+                break;
+        if (i >= NCTCSS)
+            return 0;
+        val = i + 1;
+        *pol = 0;
     } else {
         // Disabled
         return 0;
     }
 
-    int bcd = ((val / 1000) % 16) << 12 |
-              ((val / 100)  % 10) << 8 |
-              ((val / 10)   % 10) << 4 |
-              (val          % 10);
-    return bcd;
+    return val;
 }
 
 typedef struct {
@@ -320,16 +335,34 @@ static int iround(double x)
 }
 
 static void setup_channel(int i, double rx_mhz, double tx_mhz,
-    int rq, int tq, int wide, int scan)
+    int rq, int tq, int rpol, int tpol, int wide, int scan)
 {
     memory_channel_t *ch = i + (memory_channel_t*) &radio_mem[0x10];
+    int txoff_mhz;
 
-    int_to_bcd4(iround(rx_mhz * 100000.0), ch->rxfreq);
-    int_to_bcd4(iround(tx_mhz * 100000.0), ch->txoffset);
+    int_to_bcd4(iround(rx_mhz * 100000.0 / 50) * 50, ch->rxfreq);
+
+    if (rx_mhz == tx_mhz) {
+        txoff_mhz = 0;
+        ch->offminus = 0;
+        ch->offplus = 0;
+    } else if (tx_mhz > rx_mhz) {
+        txoff_mhz = tx_mhz - rx_mhz;
+        ch->offminus = 0;
+        ch->offplus = 1;
+    } else /*if (tx_mhz < rx_mhz)*/ {
+        txoff_mhz = rx_mhz - tx_mhz;
+        ch->offminus = 1;
+        ch->offplus = 0;
+    }
+
+    int_to_bcd4(iround(txoff_mhz * 100000.0 / 50) * 50, ch->txoffset);
     ch->rxtone = rq;
     ch->txtone = tq;
     ch->wide = wide;
     ch->scan = scan;
+    ch->rtondinv = rpol;
+    ch->ttondinv = tpol;
     ch->_u1 = 0;
     ch->_u2 = 0;
     ch->_u3[0] = ch->_u3[1] = ch->_u3[2] = ch->_u3[3] = ch->_u3[4] = ~0;
@@ -477,7 +510,7 @@ static int bft1_parse_row(int table_id, int first_row, char *line)
 {
     char num_str[256], rxfreq_str[256], offset_str[256], rq_str[256];
     char tq_str[256], wide_str[256], scan_str[256];
-    int num, rq, tq, wide, scan;
+    int num, rq, tq, rpol, tpol, wide, scan;
     float rx_mhz, txoff_mhz;
 
     if (sscanf(line, "%s %s %s %s %s %s %s",
@@ -485,7 +518,7 @@ static int bft1_parse_row(int table_id, int first_row, char *line)
         return 0;
 
     num = atoi(num_str);
-    if (num < 1 || num > NCHAN) {
+    if (num < 0 || num > NCHAN || num == 21 || num == 22) {
         fprintf(stderr, "Bad channel number.\n");
         return 0;
     }
@@ -501,8 +534,8 @@ static int bft1_parse_row(int table_id, int first_row, char *line)
         fprintf(stderr, "Bad transmit offset.\n");
         return 0;
     }
-    rq = encode_squelch(rq_str);
-    tq = encode_squelch(tq_str);
+    rq = encode_squelch (rq_str, &rpol);
+    tq = encode_squelch (tq_str, &tpol);
 
     if (strcasecmp("Wide", wide_str) == 0) {
         wide = 1;
@@ -524,13 +557,10 @@ static int bft1_parse_row(int table_id, int first_row, char *line)
 
     if (first_row) {
         // On first entry, erase the channel table.
-        int i;
-        for (i=0; i<21; i++) {
-            setup_channel(i, 0, 0, 0, 0, 1, 0);
-        }
-        setup_channel(23, 0, 0, 0, 0, 1, 0);
+        memset(radio_mem, 0xff, 21 * 0x10);
+        memset(&radio_mem[0x170], 0xff, 0x10);
     }
-    setup_channel(num-1, rx_mhz, rx_mhz + txoff_mhz, rq, tq, wide, scan);
+    setup_channel(num-1, rx_mhz, rx_mhz + txoff_mhz, rq, tq, rpol, tpol, wide, scan);
     return 1;
 }
 
