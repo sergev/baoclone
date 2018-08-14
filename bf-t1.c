@@ -37,6 +37,13 @@
 #define MEMSZ   0x800
 #define BLKSZ   16
 
+static const char *OFF_ON[]     = { "Off", "On" };
+static const char *LOW_HIGH[]   = { "Low", "High" };
+static const char *LANGUAGE[]   = { "Off", "English", "Chinese" };
+static const char *RELAY_MODE[] = { "Off", "Relay Receive", "Relay Send" };
+static const char *BACKLIGHT[]  = { "Off", "Key Press", "Permanent" };
+static const char *SCAN_MODE[]  = { "Timeout", "Carrier", "Search" };
+
 //
 // Print a generic information about the device.
 //
@@ -395,6 +402,43 @@ static void print_squelch(FILE *out, int ctcs, int dcs)
 }
 
 //
+// Settings at 0x150.
+//
+typedef struct {
+    uint8_t vhfl[2];        // VHF low limit
+    uint8_t vhfh[2];        // VHF high limit
+    uint8_t uhfl[2];        // UHF low limit
+    uint8_t uhfh[2];        // UHF high limit
+    uint8_t _u0[8];
+    uint8_t _u1[2];         // start of 0x0160
+    uint8_t squelch;        // byte: 0-9
+    uint8_t vox;            // byte: 0-9
+    uint8_t timeout;        // tot, 0 off, then 30 sec increments up to 180
+    uint8_t backlight : 2,  // backlight 00 = off, 01 = key, 10 = on
+            lock      : 1,  // keylock 0 = ff,  = on
+            beep      : 1,  // key beep 0 = off, 1 = on
+            blo       : 1,  // busy lockout 0 = off, 1 = on
+            ste       : 1,  // squelch tail 0 = off, 1 = on
+            fm_funct  : 1,  // fm-radio 0=off, 1=on ( off disables fm button on set )
+            batsave   : 1;  // battery save 0 = off, 1 = on
+    uint8_t scantype;       // scan type 0 = timed, 1 = carrier, 2 = stop
+    uint8_t channel;        // active channel 1-20, setting it works on upload
+    uint8_t fmrange;        // fm range 1 = low[65-76](ASIA), 0 = high[76-108](AMERICA)
+    uint8_t alarm;          // alarm (count down timer)
+                            //    d0 - d16 in half hour increments => off, 0.5 - 8.0 h
+    uint8_t voice;          // voice prompt 0 = off, 1 = english, 2 = chinese
+    uint8_t volume;         // volume 1-7 as per the radio steps
+                            //    set to #FF by original software on upload
+                            //    chirp uploads actual value and works.
+    uint8_t fm_vfo[2];      // the frequency of the fm receiver.
+                            //    resulting frequency is 65 + value * 0.1 MHz
+                            //    0x145 is then 65 + 325*0.1 = 97.5 MHz
+    uint8_t relaym;         // relay mode, d0 = off, d2 = re-tx, d1 = re-rx
+                            //    still a mystery on how it works
+    uint8_t tx_pwr;         // tx pwr 0 = low (0.5W), 1 = high(1.0W)
+} settings_t;
+
+//
 // Print full information about the device configuration.
 //
 static void bft1_print_config(FILE *out, int verbose)
@@ -441,6 +485,145 @@ static void bft1_print_config(FILE *out, int verbose)
     }
     if (verbose)
         print_squelch_tones(out, 0);
+
+    // Print other settings.
+    settings_t *mode = (settings_t*) &radio_mem[0x150];
+    fprintf(out, "\n");
+
+    // Current Channel
+    if (verbose) {
+        fprintf(out, "# Current selected channel.\n");
+        fprintf(out, "# Options: 1, 2, ... 20\n");
+    }
+    fprintf(out, "Current Channel: %u\n", mode->channel);
+
+    // Volume Level
+    if (verbose) {
+        fprintf(out, "\n# Audio volume level.\n");
+        fprintf(out, "# Options: 1, 2, ... 7\n");
+    }
+    fprintf(out, "Volume Level: %u\n", mode->volume);
+
+    // TX Power: Low, High
+    if (verbose)
+        print_options(out, LOW_HIGH, 2, "Transmit power.");
+    fprintf(out, "TX Power: %s\n", mode->tx_pwr ? "High" : "Low");
+
+    // Squelch Level: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
+    if (verbose) {
+        fprintf(out, "\n# Mute the speaker when a received signal is below this level.\n");
+        fprintf(out, "# Options: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9\n");
+    }
+    fprintf(out, "Squelch Level: %u\n", mode->squelch);
+
+    // Vox Level: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
+    if (verbose) {
+        fprintf(out, "\n# Voice operated transmission sensitivity.\n");
+        fprintf(out, "# Options: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9\n");
+    }
+    fprintf(out, "VOX Level: %u\n", mode->vox);
+
+    // Squelch Tail Eliminate: Off, On
+    if (verbose)
+        print_options(out, OFF_ON, 2, "Reduce the squelch tail when communicating with simplex station.");
+    fprintf (out, "Squelch Tail Eliminate: %s\n", mode->ste ? "On" : "Off");
+
+    // Transmit Timeout: Off, 30s, 60s, 90s, 120s, 150s, 180s
+    if (verbose) {
+        fprintf(out, "\n# Stop tramsmittion after specified number of seconds.\n");
+        fprintf(out, "# Options: Off, 30, 60, 90, 120, 150, 180\n");
+    }
+    fprintf(out, "TX Timeout: ");
+    if (mode->timeout == 0) fprintf(out, "Off\n");
+    else                    fprintf(out, "%u\n", mode->timeout * 30);
+
+    // Busy Channel Lockout: Off, On
+    if (verbose)
+        print_options (out, OFF_ON, 2, "Prevent transmittion when a signal is received.");
+    fprintf (out, "Busy Channel Lockout: %s\n", mode->blo ? "On" : "Off");
+
+    // Scan Mode: Time, Carrier, Search
+    if (verbose) {
+        fprintf (out, "\n# Method of resuming the scan after stop on active channel.\n");
+        fprintf (out, "# Timeout - resume after a few seconds.\n");
+        fprintf (out, "# Carrier - resume after a carrier dropped off.\n");
+        fprintf (out, "# Search - stop on next active frequency.\n");
+    }
+    fprintf (out, "Scan Resume: %s\n", SCAN_MODE[mode->scantype % 3]);
+
+    // Alarm Timer: Off, 0.5h ... 8h
+    if (verbose) {
+        fprintf(out, "\n# Activate alarm after specified number of hours.\n");
+        fprintf(out, "# Options: Off, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8\n");
+    }
+    fprintf(out, "Alarm Timer: ");
+    if (mode->alarm == 0) fprintf(out, "Off\n");
+    else                  fprintf(out, "%d.%d\n", mode->alarm/2, (mode->alarm & 1) ? 5 : 0);
+
+    // Voice Prompt: Off, English, Chinese
+    if (verbose)
+        print_options(out, LANGUAGE, 3, "Enable voice messages, select the language.");
+    fprintf(out, "Voice Prompt: %s\n", mode->voice < 3 ? LANGUAGE[mode->voice] : "???");
+
+    // Key Beep: Off, On
+    if (verbose)
+        print_options(out, OFF_ON, 2, "Keypad beep sound.");
+    fprintf(out, "Key Beep: %s\n", mode->beep ? "On" : "Off");
+
+    // Key Lock: Off, On
+    if (verbose)
+        print_options (out, OFF_ON, 2, "Lock keypad.");
+    fprintf (out, "Key Lock: %s\n", mode->lock ? "On" : "Off");
+
+    // Battery Save: Off, On
+    if (verbose)
+        print_options(out, OFF_ON, 2, "Decrease the amount of power used when idle.");
+    fprintf(out, "Battery Saver: %s\n", mode->batsave ? "On" : "Off");
+
+    // Back Light: Off, Key Press, Permanent
+    if (verbose)
+        print_options(out, BACKLIGHT, 3, "Display backlight.");
+    fprintf(out, "Back Light: %s\n", mode->backlight < 3 ? BACKLIGHT[mode->backlight] : "???");
+
+    // FM Radio: Off, America, Asia
+    if (verbose) {
+        fprintf(out, "\n# Select FM radio mode.\n");
+        fprintf(out, "# Options: Off, America, Asia\n");
+        fprintf(out, "# Off - disable FM button\n");
+        fprintf(out, "# America - 76-108 MHz\n");
+        fprintf(out, "# Asia - 65-76 MHz\n");
+    }
+    fprintf(out, "FM Radio: %s\n", mode->fm_funct == 0 ? "Off" :
+                                    mode->fmrange == 0 ? "America" : "Asia");
+
+    // FM Frequency in MHz
+    if (verbose) {
+        fprintf(out, "\n# Current FM frequency in MHz.\n");
+        fprintf(out, "# Options: 65.0 ... 108.0\n");
+    }
+    int mhz10 = mode->fm_vfo[0] * 256 + mode->fm_vfo[1] + 650;
+    fprintf(out, "FM Frequency: %d.%d\n", mhz10 / 10, mhz10 % 10);
+
+    // Relay Mode: Off, Relay Receive, Relay Send
+    if (verbose)
+        print_options(out, RELAY_MODE, 3, "Relay mode.");
+    fprintf(out, "Relay Mode: %s\n", mode->relaym < 3 ? RELAY_MODE[mode->relaym] : "???");
+
+    // VHF Range
+    if (verbose) {
+        fprintf(out, "\n# Frequency limits of VHF band in MHz.\n");
+    }
+    fprintf(out, "VHF Range: %d%d%d.%d-%d%d%d.%d\n",
+        mode->vhfl[1]>>4, mode->vhfl[1] & 15, mode->vhfl[0]>>4, mode->vhfl[0] & 15,
+        mode->vhfh[1]>>4, mode->vhfh[1] & 15, mode->vhfh[0]>>4, mode->vhfh[0] & 15);
+
+    // UHF Range
+    if (verbose) {
+        fprintf(out, "\n# Frequency limits of UHF band in MHz.\n");
+    }
+    fprintf(out, "VHF Range: %d%d%d.%d-%d%d%d.%d\n",
+        mode->uhfl[1]>>4, mode->uhfl[1] & 15, mode->uhfl[0]>>4, mode->uhfl[0] & 15,
+        mode->uhfh[1]>>4, mode->uhfh[1] & 15, mode->uhfh[0]>>4, mode->uhfh[0] & 15);
 }
 
 //
