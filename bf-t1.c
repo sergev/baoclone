@@ -207,14 +207,14 @@ static void decode_squelch(int index, int pol, int *ctcs, int *dcs)
 // DnnnI - DCS inverted
 // '-'   - Disabled
 //
-static int encode_squelch (char *str, int *pol)
+static int encode_squelch(char *str, int *pol)
 {
     unsigned val;
 
     if (*str == 'D' || *str == 'd') {
         // DCS tone
         char *e;
-        val = strtol (++str, &e, 10);
+        val = strtol(++str, &e, 10);
 
         // Find a valid index in DCS table.
         int i;
@@ -235,7 +235,7 @@ static int encode_squelch (char *str, int *pol)
     } else if (*str >= '0' && *str <= '9') {
         // CTCSS tone
         float hz;
-        if (sscanf (str, "%f", &hz) != 1)
+        if (sscanf(str, "%f", &hz) != 1)
             return 0;
 
         // Round to integer.
@@ -473,7 +473,11 @@ static void bft1_print_config(FILE *out, int verbose)
             continue;
         }
 
-        fprintf(out, "%5d   %7.3f  ", i, rx_hz / 1000000.0);
+        fprintf(out, "%5d   ", i);
+        if (rx_hz % 1000 != 0)
+            fprintf(out, "%8.4f ", rx_hz / 1000000.0);
+        else
+            fprintf(out, "%7.3f  ", rx_hz / 1000000.0);
         print_offset(out, tx_hz - rx_hz);
         fprintf(out, " ");
         print_squelch(out, rx_ctcs, rx_dcs);
@@ -504,10 +508,10 @@ static void bft1_print_config(FILE *out, int verbose)
     }
     fprintf(out, "Volume Level: %u\n", mode->volume);
 
-    // TX Power: Low, High
+    // Transmit Power: Low, High
     if (verbose)
         print_options(out, LOW_HIGH, 2, "Transmit power.");
-    fprintf(out, "TX Power: %s\n", mode->tx_pwr ? "High" : "Low");
+    fprintf(out, "Transmit Power: %s\n", mode->tx_pwr ? "High" : "Low");
 
     // Squelch Level: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
     if (verbose) {
@@ -526,30 +530,30 @@ static void bft1_print_config(FILE *out, int verbose)
     // Squelch Tail Eliminate: Off, On
     if (verbose)
         print_options(out, OFF_ON, 2, "Reduce the squelch tail when communicating with simplex station.");
-    fprintf (out, "Squelch Tail Eliminate: %s\n", mode->ste ? "On" : "Off");
+    fprintf(out, "Squelch Tail Eliminate: %s\n", mode->ste ? "On" : "Off");
 
-    // Transmit Timeout: Off, 30s, 60s, 90s, 120s, 150s, 180s
+    // Transmit Timer: Off, 30s, 60s, 90s, 120s, 150s, 180s
     if (verbose) {
         fprintf(out, "\n# Stop tramsmittion after specified number of seconds.\n");
         fprintf(out, "# Options: Off, 30, 60, 90, 120, 150, 180\n");
     }
-    fprintf(out, "TX Timeout: ");
+    fprintf(out, "Transmit Timer: ");
     if (mode->timeout == 0) fprintf(out, "Off\n");
     else                    fprintf(out, "%u\n", mode->timeout * 30);
 
     // Busy Channel Lockout: Off, On
     if (verbose)
-        print_options (out, OFF_ON, 2, "Prevent transmittion when a signal is received.");
-    fprintf (out, "Busy Channel Lockout: %s\n", mode->blo ? "On" : "Off");
+        print_options(out, OFF_ON, 2, "Prevent transmittion when a signal is received.");
+    fprintf(out, "Busy Channel Lockout: %s\n", mode->blo ? "On" : "Off");
 
     // Scan Mode: Time, Carrier, Search
     if (verbose) {
-        fprintf (out, "\n# Method of resuming the scan after stop on active channel.\n");
-        fprintf (out, "# Timeout - resume after a few seconds.\n");
-        fprintf (out, "# Carrier - resume after a carrier dropped off.\n");
-        fprintf (out, "# Search - stop on next active frequency.\n");
+        fprintf(out, "\n# Method of resuming the scan after stop on active channel.\n");
+        fprintf(out, "# Timeout - resume after a few seconds.\n");
+        fprintf(out, "# Carrier - resume after a carrier dropped off.\n");
+        fprintf(out, "# Search - stop on next active frequency.\n");
     }
-    fprintf (out, "Scan Resume: %s\n", SCAN_MODE[mode->scantype % 3]);
+    fprintf(out, "Scan Resume: %s\n", SCAN_MODE[mode->scantype % 3]);
 
     // Alarm Timer: Off, 0.5h ... 8h
     if (verbose) {
@@ -572,8 +576,8 @@ static void bft1_print_config(FILE *out, int verbose)
 
     // Key Lock: Off, On
     if (verbose)
-        print_options (out, OFF_ON, 2, "Lock keypad.");
-    fprintf (out, "Key Lock: %s\n", mode->lock ? "On" : "Off");
+        print_options(out, OFF_ON, 2, "Lock keypad.");
+    fprintf(out, "Key Lock: %s\n", mode->lock ? "On" : "Off");
 
     // Battery Save: Off, On
     if (verbose)
@@ -621,7 +625,7 @@ static void bft1_print_config(FILE *out, int verbose)
     if (verbose) {
         fprintf(out, "\n# Frequency limits of UHF band in MHz.\n");
     }
-    fprintf(out, "VHF Range: %d%d%d.%d-%d%d%d.%d\n",
+    fprintf(out, "UHF Range: %d%d%d.%d-%d%d%d.%d\n",
         mode->uhfl[1]>>4, mode->uhfl[1] & 15, mode->uhfl[0]>>4, mode->uhfl[0] & 15,
         mode->uhfh[1]>>4, mode->uhfh[1] & 15, mode->uhfh[0]>>4, mode->uhfh[0] & 15);
 }
@@ -650,14 +654,172 @@ static void bft1_save_image(FILE *img)
 
 static void bft1_parse_parameter(char *param, char *value)
 {
+    settings_t *mode = (settings_t*) &radio_mem[0x150];
+    int i;
+
     if (strcasecmp("Radio", param) == 0) {
         if (strcasecmp("Baofeng BF-T1", value) != 0) {
-            fprintf(stderr, "Bad value for %s: %s\n", param, value);
+bad:        fprintf(stderr, "Bad value for %s: %s\n", param, value);
             exit(-1);
         }
         return;
     }
+    if (strcasecmp("Current Channel", param) == 0) {
+        mode->channel = atoi(value);
+        return;
+    }
+    if (strcasecmp("Volume Level", param) == 0) {
+        mode->volume = atoi(value);
+        return;
+    }
+    if (strcasecmp("Transmit Power", param) == 0) {
+        if (strcasecmp("Low", value) == 0) {
+            mode->tx_pwr = 0;
+            return;
+        }
+        if (strcasecmp("High", value) == 0) {
+            mode->tx_pwr = 1;
+            return;
+        }
+        goto bad;
+    }
+    if (strcasecmp("Squelch Level", param) == 0) {
+        mode->squelch = atoi(value);
+        return;
+    }
+    if (strcasecmp("VOX Level", param) == 0) {
+        mode->vox = atoi(value);
+        return;
+    }
+    if (strcasecmp("Squelch Tail Eliminate", param) == 0) {
+        mode->ste = on_off(param, value);
+        return;
+    }
+    if (strcasecmp("Transmit Timer", param) == 0) {
+        if (strcasecmp("Off", value) == 0) {
+            mode->timeout = 0;
+        } else {
+            mode->timeout = atoi(value) / 30;
+        }
+        return;
+    }
+    if (strcasecmp("Busy Channel Lockout", param) == 0) {
+        mode->blo = on_off(param, value);
+        return;
+    }
+    if (strcasecmp("Scan Resume", param) == 0) {
+        for (i=0; i<3; i++) {
+            if (strcasecmp(SCAN_MODE[i], value) == 0) {
+                mode->scantype = i;
+                return;
+            }
+        }
+        goto bad;
+    }
+    if (strcasecmp("Alarm Timer", param) == 0) {
+        if (strcasecmp("Off", value) == 0) {
+            mode->alarm = 0;
+        } else {
+            mode->alarm = atof(value) * 2 + 0.5;
+        }
+        return;
+    }
+    if (strcasecmp("Voice Prompt", param) == 0) {
+        for (i=0; i<3; i++) {
+            if (strcasecmp(LANGUAGE[i], value) == 0) {
+                mode->voice = i;
+                return;
+            }
+        }
+        goto bad;
+    }
+    if (strcasecmp("Key Beep", param) == 0) {
+        mode->beep = on_off(param, value);
+        return;
+    }
+    if (strcasecmp("Key Lock", param) == 0) {
+        mode->lock = on_off(param, value);
+        return;
+    }
+    if (strcasecmp("Battery Saver", param) == 0) {
+        mode->batsave = on_off(param, value);
+        return;
+    }
+    if (strcasecmp("Back Light", param) == 0) {
+        for (i=0; i<3; i++) {
+            if (strcasecmp(BACKLIGHT[i], value) == 0) {
+                mode->backlight = i;
+                return;
+            }
+        }
+        goto bad;
+    }
+    if (strcasecmp("FM Radio", param) == 0) {
+        if (strcasecmp("Off", value) == 0) {
+            mode->fm_funct = 0;
+            return;
+        }
+        if (strcasecmp("America", value) == 0) {
+            mode->fm_funct = 1;
+            mode->fmrange = 0;
+            return;
+        }
+        if (strcasecmp("Asia", value) == 0) {
+            mode->fm_funct = 1;
+            mode->fmrange = 1;
+            return;
+        }
+        goto bad;
+    }
+    if (strcasecmp("FM Frequency", param) == 0) {
+        int mhz10 = atof(value) * 10.0 + 0.5;
+        mode->fm_vfo[0] = (mhz10 - 650) >> 8;
+        mode->fm_vfo[1] = (mhz10 - 650);
+        return;
+    }
+    if (strcasecmp("Relay Mode", param) == 0) {
+        for (i=0; i<3; i++) {
+            if (strcasecmp(RELAY_MODE[i], value) == 0) {
+                mode->relaym = i;
+                return;
+            }
+        }
+        goto bad;
+    }
+    if (strcasecmp("VHF Range", param) == 0) {
+        float upper, lower;
+        if (sscanf(value, "%f-%f", &lower, &upper) != 2)
+            goto bad;
 
+        int lmhz10 = lower * 10.0 + 0.5;
+        int umhz10 = upper * 10.0 + 0.5;
+        mode->vhfl[1] = ((lmhz10 / 1000 % 10) << 4) |
+                         (lmhz10 / 100  % 10);
+        mode->vhfl[0] = ((lmhz10 / 10   % 10) << 4) |
+                         (lmhz10        % 10);
+        mode->vhfh[1] = ((umhz10 / 1000 % 10) << 4) |
+                         (umhz10 / 100  % 10);
+        mode->vhfh[0] = ((umhz10 / 10   % 10) << 4) |
+                         (umhz10        % 10);
+        return;
+    }
+    if (strcasecmp("UHF Range", param) == 0) {
+        float upper, lower;
+        if (sscanf(value, "%f-%f", &lower, &upper) != 2)
+            goto bad;
+
+        int lmhz10 = lower * 10.0 + 0.5;
+        int umhz10 = upper * 10.0 + 0.5;
+        mode->uhfl[1] = ((lmhz10 / 1000 % 10) << 4) |
+                         (lmhz10 / 100  % 10);
+        mode->uhfl[0] = ((lmhz10 / 10   % 10) << 4) |
+                         (lmhz10        % 10);
+        mode->uhfh[1] = ((umhz10 / 1000 % 10) << 4) |
+                         (umhz10 / 100  % 10);
+        mode->uhfh[0] = ((umhz10 / 10   % 10) << 4) |
+                         (umhz10        % 10);
+        return;
+    }
     fprintf(stderr, "Unknown parameter: %s = %s\n", param, value);
     exit(-1);
 }
@@ -717,8 +879,8 @@ static int bft1_parse_row(int table_id, int first_row, char *line)
         fprintf(stderr, "Bad transmit offset.\n");
         return 0;
     }
-    rq = encode_squelch (rq_str, &rpol);
-    tq = encode_squelch (tq_str, &tpol);
+    rq = encode_squelch(rq_str, &rpol);
+    tq = encode_squelch(tq_str, &tpol);
 
     if (strcasecmp("Wide", wide_str) == 0) {
         wide = 1;
