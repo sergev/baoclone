@@ -6,7 +6,7 @@ programming cable.  Supported radios:
  * Baofeng UV-B5
  * Baofeng BF-888S
 
-Web site of the project: https://code.google.com/p/baoclone/wiki/About
+Web site of the project: https://github.com/sergev/baoclone/wiki
 
 
 === Usage ===
