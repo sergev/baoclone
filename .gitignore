@@ -1,3 +1,4 @@
 *.o
 **/backup.img
 **/device.conf
+baoclone

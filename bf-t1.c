@@ -534,7 +534,7 @@ static void bft1_print_config(FILE *out, int verbose)
 
     // Transmit Timer: Off, 30s, 60s, 90s, 120s, 150s, 180s
     if (verbose) {
-        fprintf(out, "\n# Stop tramsmittion after specified number of seconds.\n");
+        fprintf(out, "\n# Stop transmission after specified number of seconds.\n");
         fprintf(out, "# Options: Off, 30, 60, 90, 120, 150, 180\n");
     }
     fprintf(out, "Transmit Timer: ");
@@ -543,7 +543,7 @@ static void bft1_print_config(FILE *out, int verbose)
 
     // Busy Channel Lockout: Off, On
     if (verbose)
-        print_options(out, OFF_ON, 2, "Prevent transmittion when a signal is received.");
+        print_options(out, OFF_ON, 2, "Prevent transmission when a signal is received.");
     fprintf(out, "Busy Channel Lockout: %s\n", mode->blo ? "On" : "Off");
 
     // Scan Mode: Time, Carrier, Search

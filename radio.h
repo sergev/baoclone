@@ -48,7 +48,7 @@ void radio_download (void);
 void radio_upload (int cont_flag);
 
 //
-// Print a generic information about the device.
+// Print generic information about the device.
 //
 void radio_print_version (FILE *out);
 
