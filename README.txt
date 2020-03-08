@@ -66,7 +66,7 @@ You can use these files as examples or templates:
 Sources are distributed freely under the terms of MIT license.
 You can download sources via SVN:
 
-    git clone https://code.google.com/p/baoclone/
+    git clone https://github.com/sergev/baoclone
 
 To build on Linux or Mac OS X, run:
     make
