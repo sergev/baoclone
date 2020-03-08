@@ -64,7 +64,7 @@ You can use these files as examples or templates:
 === Sources ===
 
 Sources are distributed freely under the terms of MIT license.
-You can download sources via SVN:
+You can download sources like this:
 
     git clone https://github.com/sergev/baoclone
 
