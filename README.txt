@@ -6,7 +6,7 @@ programming cable.  Supported radios:
  * Baofeng UV-B5
  * Baofeng BF-888S
 
-Web site of the project: https://code.google.com/p/baoclone/wiki/About
+Web site of the project: https://github.com/sergev/baoclone/wiki
 
 
 === Usage ===
@@ -66,7 +66,7 @@ You can use these files as examples or templates:
 Sources are distributed freely under the terms of MIT license.
 You can download sources via SVN:
 
-    git clone https://code.google.com/p/baoclone/
+    git clone https://github.com/sergev/baoclone
 
 To build on Linux or Mac OS X, run:
     make
