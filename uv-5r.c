@@ -874,7 +874,7 @@ static void print_config (FILE *out, int verbose, int is_aged)
     fprintf (out, "Keypad Beep: %s\n", mode->beep ? "On" : "Off");
 
     if (verbose) {
-        fprintf (out, "\n# Stop tramsmittion after specified number of seconds.\n");
+        fprintf (out, "\n# Stop tramsmission after specified number of seconds.\n");
         fprintf (out, "# Options: 15, 30, 45, 60, ... 585, 600\n");
     }
     fprintf (out, "TX Timer: %u\n", (mode->timeout + 1) * 15);
@@ -913,7 +913,7 @@ static void print_config (FILE *out, int verbose, int is_aged)
     fprintf (out, "Display Mode B: %s\n", DISPLAY_MODE_NAME[mode->mdfb & 3]);
 
     if (verbose)
-        print_options (out, OFF_ON, 2, "Prevent transmittion when a signal is received.");
+        print_options (out, OFF_ON, 2, "Prevent transmission when a signal is received.");
     fprintf (out, "Busy Channel Lockout: %s\n", mode->bcl ? "On" : "Off");
 
     if (verbose)

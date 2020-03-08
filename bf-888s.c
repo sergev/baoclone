@@ -423,7 +423,7 @@ static void bf888s_print_config (FILE *out, int verbose)
     fprintf (out, "Side Key: %s\n", SIDEKEY_NAME[extra->sidekey & 3]);
 
     if (verbose) {
-        fprintf (out, "\n# Stop tramsmittion after specified number of seconds.\n");
+        fprintf (out, "\n# Stop tramsmission after specified number of seconds.\n");
         fprintf (out, "# Options: Off, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300\n");
     }
     fprintf (out, "TX Timer: ");
@@ -463,7 +463,7 @@ static void bf888s_print_config (FILE *out, int verbose)
     fprintf (out, "VOX Level: %u\n", mode->voxgain + 1);
 
     if (verbose)
-        print_options (out, OFF_ON, 2, "No transmittion when signal is received.");
+        print_options (out, OFF_ON, 2, "No transmission when signal is received.");
     fprintf (out, "VOX Inhibit On Receive: %s\n", mode->voxinhrx ? "On" : "Off");
 
     if (verbose)
