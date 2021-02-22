@@ -73,6 +73,10 @@ const int DCS_CODES [NDCS] = {
     732, 734, 743, 754,
 };
 
+//
+// Trace data i/o via the serial port.
+//
+int verbose;
 
 //
 // Check for a regular file.

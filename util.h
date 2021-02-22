@@ -50,7 +50,7 @@ extern const char *copyright;
 //
 // Trace data i/o via the serial port.
 //
-int verbose;
+extern int verbose;
 
 //
 // CTCSS tones, Hz*10.
