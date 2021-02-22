@@ -107,9 +107,9 @@ extern unsigned char radio_ident [8];
 //
 // File descriptor of serial port with programming cable attached.
 //
-int radio_port;
+extern int radio_port;
 
 //
 // Read/write progress counter.
 //
-int radio_progress;
+extern int radio_progress;
