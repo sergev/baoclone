@@ -130,6 +130,18 @@ static void read_block (int fd, int start, unsigned char *data, int nbytes)
         fprintf (stderr, "Radio refused to send block 0x%04x.\n", start);
         exit(-1);
     }
+
+    // On BF-F8HP, we may get acknowledge from previous block.
+    if (reply[0] == 0x06) {
+        reply[0] = reply[1];
+        reply[1] = reply[2];
+        reply[2] = reply[3];
+        if (serial_read (fd, &reply[3], 1) != 1) {
+            fprintf (stderr, "Radio refused to send block 0x%04x.\n", start);
+            exit(-1);
+        }
+    }
+
     addr = reply[1] << 8 | reply[2];
     if (reply[0] != 'X' || addr != start || reply[3] != nbytes) {
         fprintf (stderr, "Bad reply for block 0x%04x of %d bytes: %02x-%02x-%02x-%02x\n",
@@ -145,15 +157,15 @@ static void read_block (int fd, int start, unsigned char *data, int nbytes)
     }
 
     // Get acknowledge.
+    // Note that on BF-F8HP acknowledge may be delayed until next command.
     serial_write (fd, "\x06", 1);
-    if (serial_read (fd, reply, 1) != 1) {
-        fprintf (stderr, "No acknowledge after block 0x%04x.\n", start);
-        exit(-1);
+    if (serial_read (fd, reply, 1) == 1) {
+        if (reply[0] != 0x06) {
+            fprintf (stderr, "Bad acknowledge after block 0x%04x: %02x\n", start, reply[0]);
+            exit(-1);
+        }
     }
-    if (reply[0] != 0x06) {
-        fprintf (stderr, "Bad acknowledge after block 0x%04x: %02x\n", start, reply[0]);
-        exit(-1);
-    }
+
     if (verbose) {
         printf ("# Read 0x%04x: ", start);
         print_hex (data, nbytes);
