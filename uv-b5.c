@@ -59,8 +59,9 @@ static const char *OFF_ON[] = { "Off", "On" };
 //
 // Print a generic information about the device.
 //
-static void uvb5_print_version(FILE *out)
+static void uvb5_print_version(FILE *out, int show_version)
 {
+    // Nothing to print.
 }
 
 //

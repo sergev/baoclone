@@ -36,7 +36,8 @@ extern int optind;
 
 void usage()
 {
-    fprintf(stderr, _("BaoClone Utility, Version %s, %s\n"), program_version, program_copyright);
+    fprintf(stderr, _("BaoClone Utility, Version %s\n"), program_version);
+    fprintf(stderr, _("%s\n"), program_copyright);
     fprintf(stderr, _("Usage:\n"));
     fprintf(stderr, _("    baoclone [-v] port\n"));
     fprintf(stderr,
@@ -107,7 +108,7 @@ int main(int argc, char **argv)
 
         radio_connect(argv[0]);
         radio_read_image(argv[1]);
-        radio_print_version(stdout);
+        radio_print_version(stdout, 1);
         radio_upload(0);
         radio_disconnect();
 
@@ -118,7 +119,7 @@ int main(int argc, char **argv)
         if (is_file(argv[0])) {
             // Apply text config to image file.
             radio_read_image(argv[0]);
-            radio_print_version(stdout);
+            radio_print_version(stdout, 1);
             radio_parse_config(argv[1]);
             radio_save_image("device.img");
 
@@ -126,7 +127,7 @@ int main(int argc, char **argv)
             // Update device from text config file.
             radio_connect(argv[0]);
             radio_download();
-            radio_print_version(stdout);
+            radio_print_version(stdout, 1);
             radio_save_image("backup.img");
             radio_parse_config(argv[1]);
             radio_upload(1);
@@ -141,14 +142,14 @@ int main(int argc, char **argv)
             // Print configuration from image file.
             // Load image from file.
             radio_read_image(argv[0]);
-            radio_print_version(stdout);
+            radio_print_version(stdout, 1);
             radio_print_config(stdout, !isatty(1));
 
         } else {
             // Dump device to image file.
             radio_connect(argv[0]);
             radio_download();
-            radio_print_version(stdout);
+            radio_print_version(stdout, 1);
             radio_disconnect();
             radio_save_image("device.img");
 
@@ -160,7 +161,7 @@ int main(int argc, char **argv)
                 perror(filename);
                 exit(-1);
             }
-            radio_print_version(conf);
+            radio_print_version(conf, 0);
             radio_print_config(conf, 1);
             fclose(conf);
         }

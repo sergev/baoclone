@@ -487,3 +487,20 @@ void print_squelch_tones(FILE *out, int normal_only)
     }
     fprintf(out, "\n");
 }
+
+//
+// Copy string, trim spaces.
+//
+const char *trim_str(const char *src, unsigned nbytes, char *buf)
+{
+    char *beg = strncpy(buf, src, nbytes);
+    beg[nbytes] = 0;
+    while (*beg == ' ')
+        beg++;
+
+    char *end = beg + strlen(beg);
+    while (end > beg && (end[-1] <= ' ' || end[-1] > '~'))
+        *--end = 0;
+
+    return beg;
+}

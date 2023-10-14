@@ -64,10 +64,10 @@ void radio_disconnect()
 //
 // Print a generic information about the device.
 //
-void radio_print_version(FILE *out)
+void radio_print_version(FILE *out, int show_version)
 {
     fprintf(out, "Radio: %s\n", device->name);
-    device->print_version(out);
+    device->print_version(out, show_version);
 }
 
 //

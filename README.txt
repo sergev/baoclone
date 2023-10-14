@@ -55,6 +55,7 @@ You can use these files as examples or templates:
  * uv-b5-factory.conf     - Factory configuration for UV-B5.
  * bf-888s-factory.conf   - Factory configuration for BF-888S.
  * bf-t1-factory.conf     - Factory configuration for BF-T1.
+ * bf-f8hp-factory.conf   - Factory configuration for BF-F8HP.
  * uv-5r-sunnyvale.conf,
    uv-b5-sunnyvale.conf   - Configurations of my personal handhelds
                             for south SF Bay Area, CA.
@@ -69,7 +70,7 @@ You can download sources like this:
 
     git clone https://github.com/sergev/baoclone
 
-To build on Linux or Mac OS X, run:
+To build and install on Linux or Mac OS X, use:
 
     make
     make install
@@ -77,6 +78,10 @@ To build on Linux or Mac OS X, run:
 To build on Windows using MINGW compiler, use:
 
     gmake -f make-mingw
+
+To run unit tests:
+
+    make test
 
 ___
 Regards,

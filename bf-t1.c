@@ -47,7 +47,7 @@ static const char *SCAN_MODE[]  = { "Timeout", "Carrier", "Search" };
 //
 // Print a generic information about the device.
 //
-static void bft1_print_version(FILE *out)
+static void bft1_print_version(FILE *out, int show_version)
 {
     // Nothing to print.
 }

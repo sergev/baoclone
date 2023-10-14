@@ -66,31 +66,27 @@ static const char *OFF_ON[] = { "Off", "On" };
 //
 // Print a generic information about the device.
 //
-static void uv5r_print_version(FILE *out)
+static void uv5r_print_version(FILE *out, int show_version)
 {
-    char buf[17], *version = buf, *p;
-
-    // Copy the string, trim spaces.
-    strncpy(version, (char *)&radio_mem[0x1EC0 + 0x30], 16);
-    version[16] = 0;
-    while (*version == ' ')
-        version++;
-    p = version + strlen(version);
-    while (p > version && p[-1] == ' ')
-        *--p = 0;
-
     // Don't print firmware and serial number to file,
     // to prevent the user to copy them from one radio to another.
-    if (out == stdout) {
+    if (show_version) {
+        // Copy the string, trim spaces.
+        char buf[17];
+        const char *version = trim_str((const char *)&radio_mem[0x1EC0 + 0x30], 14, buf);
+
         // 3+poweron message
         fprintf(out, "Firmware: %s\n", version);
 
+        // Copy the string, trim spaces.
+        const char *serial = trim_str((const char *)&radio_mem[0x1EC0 + 0x10], 16, buf);
+
         // 6+poweron message
-        fprintf(out, "Serial: %.16s\n", &radio_mem[0x1EC0 + 0x10]);
+        fprintf(out, "Serial: %.16s\n", serial);
     }
 }
 
-static void aged_print_version(FILE *out)
+static void aged_print_version(FILE *out, int show_version)
 {
     // Nothing to print.
 }

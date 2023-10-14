@@ -61,7 +61,7 @@ void radio_upload(int cont_flag);
 //
 // Print generic information about the device.
 //
-void radio_print_version(FILE *out);
+void radio_print_version(FILE *out, int show_version);
 
 //
 // Print full information about the device configuration.
@@ -92,7 +92,7 @@ typedef struct {
     void (*upload)(int cont_flag);
     void (*read_image)(FILE *img, unsigned char *ident);
     void (*save_image)(FILE *img);
-    void (*print_version)(FILE *out);
+    void (*print_version)(FILE *out, int show_version);
     void (*print_config)(FILE *out, int verbose);
     void (*parse_parameter)(char *param, char *value);
     int (*parse_header)(char *line);
