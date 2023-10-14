@@ -42,4 +42,34 @@ install(TARGETS
     DESTINATION bin
 )
 
+#--------------------------------------------------------------
+# GoogleTest
+#
+include(FetchContent)
+include(ExternalProject)
+FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG release-1.12.1
+)
+set(BUILD_SHARED_LIBS ON)
+FetchContent_GetProperties(googletest)
+if(NOT googletest_POPULATED)
+    FetchContent_Populate(googletest)
+    set(BUILD_GMOCK OFF)
+    set(INSTALL_GTEST OFF)
+endif()
+
+add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR})
+
+include(GoogleTest)
+enable_testing()
+set_target_properties(gtest PROPERTIES DEBUG_POSTFIX "")
+set_target_properties(gtest_main PROPERTIES DEBUG_POSTFIX "")
+set_target_properties(gtest PROPERTIES EXCLUDE_FROM_ALL TRUE)
+set_target_properties(gtest_main PROPERTIES EXCLUDE_FROM_ALL TRUE)
+file(WRITE "${CMAKE_BINARY_DIR}/CTestCustom.cmake"
+    "set(CTEST_CUSTOM_PRE_TEST \"${CMAKE_MAKE_PROGRAM} unit_tests\")\n"
+)
+
 add_subdirectory(tests)

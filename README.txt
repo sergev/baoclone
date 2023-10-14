@@ -71,9 +71,8 @@ You can download sources like this:
 
 To build on Linux or Mac OS X, run:
 
-    cmake -B build
-    make -C build
-    make -C build install
+    make
+    make install
 
 To build on Windows using MINGW compiler, use:
 

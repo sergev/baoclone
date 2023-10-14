@@ -727,7 +727,7 @@ static void print_config(FILE *out, int verbose, int is_aged)
         fprintf(out, "# Display this message on power-on.\n");
         fprintf(out, "# 14 characters split into two lines of 7 symbols each.\n");
     }
-    fprintf(out, "Message: %.16s\n", &radio_mem[0x1EC0 + 0x20]);
+    fprintf(out, "Message: %.14s\n", &radio_mem[0x1EC0 + 0x20]);
 
     // Print memory channels.
     fprintf(out, "\n");
