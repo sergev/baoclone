@@ -6,16 +6,19 @@ project(baoclone VERSION 1.6 DESCRIPTION "BaoClone Utility")
 set(CMAKE_C_STANDARD 11)
 add_compile_options(-Wall -Werror -Wshadow)
 
-# Build executable file
-add_executable(${PROJECT_NAME}
+# Build library
+add_library(radio STATIC
     bf-888s.c
     bf-t1.c
-    main.c
     radio.c
     util.c
     uv-5r.c
     uv-b5.c
 )
+
+# Build executable file
+add_executable(${PROJECT_NAME} main.c)
+target_link_libraries(${PROJECT_NAME} radio)
 
 # Get git commit hash and revision count
 execute_process(
@@ -38,3 +41,5 @@ install(TARGETS
     ${PROJECT_NAME}
     DESTINATION bin
 )
+
+add_subdirectory(tests)
