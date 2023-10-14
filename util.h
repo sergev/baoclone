@@ -45,13 +45,13 @@
 //
 // Program version.
 //
-extern const char version[];
+extern const char program_version[];
 extern const char *copyright;
 
 //
 // Trace data i/o via the serial port.
 //
-extern int verbose;
+extern int trace_flag;
 
 //
 // CTCSS tones, Hz*10.

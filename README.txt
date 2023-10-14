@@ -5,6 +5,7 @@ programming cable.  Supported radios:
  * Baofeng UV-5R
  * Baofeng UV-B5
  * Baofeng BF-888S
+ * Baofeng BF-F8HP
 
 Web site of the project: https://github.com/sergev/baoclone/wiki
 
@@ -69,10 +70,13 @@ You can download sources like this:
     git clone https://github.com/sergev/baoclone
 
 To build on Linux or Mac OS X, run:
-    make
-    make install
 
-To build on Windows using MINGW compiler, run:
+    cmake -B build
+    make -C build
+    make -C build install
+
+To build on Windows using MINGW compiler, use:
+
     gmake -f make-mingw
 
 ___

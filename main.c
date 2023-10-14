@@ -1,7 +1,7 @@
 /*
  * Clone Utility for Baofeng radios.
  *
- * Copyright (C) 2013 Serge Vakulenko, KK6ABQ
+ * Copyright (C) 2013-2023 Serge Vakulenko, KK6ABQ
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,7 +31,7 @@
 #include "radio.h"
 #include "util.h"
 
-const char version[] = VERSION;
+const char program_version[] = VERSION;
 const char *copyright;
 
 extern char *optarg;
@@ -39,7 +39,7 @@ extern int optind;
 
 void usage()
 {
-    fprintf(stderr, _("BaoClone Utility, Version %s, %s\n"), version, copyright);
+    fprintf(stderr, _("BaoClone Utility, Version %s, %s\n"), program_version, copyright);
     fprintf(stderr, _("Usage:\n"));
     fprintf(stderr, _("    baoclone [-v] port\n"));
     fprintf(stderr,
@@ -75,12 +75,12 @@ int main(int argc, char **argv)
 #endif
     textdomain("baoclone");
 
-    copyright = _("Copyright (C) 2013-2018 Serge Vakulenko KK6ABQ");
-    verbose   = 0;
+    copyright  = _("Copyright (C) 2013-2023 Serge Vakulenko KK6ABQ");
+    trace_flag = 0;
     for (;;) {
         switch (getopt(argc, argv, "vcw")) {
         case 'v':
-            ++verbose;
+            ++trace_flag;
             continue;
         case 'w':
             ++write_flag;

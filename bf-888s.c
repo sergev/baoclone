@@ -92,7 +92,7 @@ static void read_block(int fd, int start, unsigned char *data, int nbytes)
         fprintf(stderr, "Bad acknowledge after block 0x%04x: %02x\n", start, reply[0]);
         exit(-1);
     }
-    if (verbose) {
+    if (trace_flag) {
         printf("# Read 0x%04x: ", start);
         print_hex(data, nbytes);
         printf("\n");
@@ -131,7 +131,7 @@ static void write_block(int fd, int start, const unsigned char *data, int nbytes
         exit(-1);
     }
 
-    if (verbose) {
+    if (trace_flag) {
         printf("# Write 0x%04x: ", start);
         print_hex(data, nbytes);
         printf("\n");

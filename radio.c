@@ -77,7 +77,7 @@ static int try_magic(const unsigned char *magic)
     int magic_len = strlen((char *)magic);
 
     // Send magic.
-    if (verbose) {
+    if (trace_flag) {
         printf("# Sending magic: ");
         print_hex(magic, magic_len);
         printf("\n");
@@ -87,7 +87,7 @@ static int try_magic(const unsigned char *magic)
 
     // Check response.
     if (serial_read(radio_port, reply, 1) != 1) {
-        if (verbose)
+        if (trace_flag)
             fprintf(stderr, "Radio did not respond.\n");
         return 0;
     }
@@ -102,7 +102,7 @@ static int try_magic(const unsigned char *magic)
         fprintf(stderr, "Empty identifier.\n");
         return 0;
     }
-    if (verbose) {
+    if (trace_flag) {
         printf("# Identifier: ");
         print_hex(radio_ident, 8);
         printf("\n");
@@ -187,12 +187,12 @@ void radio_connect(char *port_name)
 void radio_download()
 {
     radio_progress = 0;
-    if (!verbose)
+    if (!trace_flag)
         fprintf(stderr, "Read device: ");
 
     device->download();
 
-    if (!verbose)
+    if (!trace_flag)
         fprintf(stderr, " done.\n");
 
     // Copy device identifier to image identifier,
@@ -211,13 +211,13 @@ void radio_upload(int cont_flag)
         exit(-1);
     }
     radio_progress = 0;
-    if (!verbose)
+    if (!trace_flag)
         fprintf(stderr, "Write device: ");
 
     serial_flush(radio_port);
     device->upload(cont_flag);
 
-    if (!verbose)
+    if (!trace_flag)
         fprintf(stderr, " done.\n");
 }
 
@@ -379,7 +379,7 @@ void radio_print_config(FILE *out, int verbose)
             buf[0] = 0;
         fprintf(out, "#\n");
         fprintf(out, "# This configuration was generated %sby BaoClone Utility,\n", buf);
-        fprintf(out, "# Version %s, %s\n", version, copyright);
+        fprintf(out, "# Version %s, %s\n", program_version, copyright);
         fprintf(out, "#\n");
     }
     device->print_config(out, verbose);

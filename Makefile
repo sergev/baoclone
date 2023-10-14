@@ -1,4 +1,4 @@
-CC		= gcc -m64
+CC		= gcc
 
 VERSION         = 1.6
 GITCOUNT        = $(shell git rev-list HEAD --count)
