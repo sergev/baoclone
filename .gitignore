@@ -1,5 +1,6 @@
 *.o
 *.hd
 **/device.img
+**/backup.img
 **/device.conf
 baoclone

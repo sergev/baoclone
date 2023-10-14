@@ -25,20 +25,21 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#include <stdio.h>
 
 //
 // Localization.
 //
 #if 0
     /* Use gettext(). */
-    #include <libintl.h>
-    #define _(str)                      gettext (str)
+#include <libintl.h>
+#define _(str) gettext(str)
 #else
-    /* No localization. */
-    #define _(str)                      str
-    #define textdomain(name)            /* empty */
-    #define bindtextdomain(name, dir)   /* empty */
-    #define setlocale(category, locale) /* empty */
+/* No localization. */
+#define _(str)                      str
+#define textdomain(name)            /* empty */
+#define bindtextdomain(name, dir)   /* empty */
+#define setlocale(category, locale) /* empty */
 #endif
 
 //
@@ -55,70 +56,70 @@ extern int verbose;
 //
 // CTCSS tones, Hz*10.
 //
-#define NCTCSS  50
+#define NCTCSS 50
 
-extern const int CTCSS_TONES [NCTCSS];
+extern const int CTCSS_TONES[NCTCSS];
 
 //
 // DCS codes.
 //
-#define NDCS    104
+#define NDCS 104
 
-extern const int DCS_CODES [NDCS];
+extern const int DCS_CODES[NDCS];
 
 //
 // Print data in hex format.
 //
-void print_hex (const unsigned char *data, int len);
+void print_hex(const unsigned char *data, int len);
 
 //
 // Open the serial port.
 //
-int serial_open (char *portname);
+int serial_open(char *portname);
 
 //
 // Close the serial port.
 //
-void serial_close (int fd);
+void serial_close(int fd);
 
 //
 // Purge all received data.
 //
-void serial_flush (int fd);
+void serial_flush(int fd);
 
 //
 // Read data from serial port.
 // Return 0 when no data available.
 // Use 200-msec timeout.
 //
-int serial_read (int fd, unsigned char *data, int len);
+int serial_read(int fd, unsigned char *data, int len);
 
 //
 // Write data to serial port.
 //
-void serial_write (int fd, const void *data, int len);
+void serial_write(int fd, const void *data, int len);
 
 //
 // Delay in milliseconds.
 //
-void mdelay (unsigned msec);
+void mdelay(unsigned msec);
 
 //
 // Check for a regular file.
 //
-int is_file (char *filename);
+int is_file(char *filename);
 
 //
 // Convert 32-bit value from binary coded decimal
 // to integer format (8 digits).
 //
-int bcd_to_int (int bcd);
+int bcd_to_int(int bcd);
 
 //
 // Convert 32-bit value from integer
 // binary coded decimal format (8 digits).
 //
-int int_to_bcd (int val);
+int int_to_bcd(int val);
 
 //
 // Convert array of 8-bit values from binary coded decimal
@@ -136,32 +137,32 @@ void int_to_bcd4(int val, unsigned char bcd[4]);
 // Get a binary value of the parameter: On/Off,
 // Ignore case.
 //
-int on_off (char *param, char *value);
+int on_off(char *param, char *value);
 
 //
 // Get integer value, or "Off" as 0,
 // Ignore case.
 //
-int atoi_off (const char *value);
+int atoi_off(const char *value);
 
 //
 // Copy a text string to memory image.
 // Clear unused space to zero.
 //
-void copy_str (unsigned char *dest, const char *src, int nbytes);
+void copy_str(unsigned char *dest, const char *src, int nbytes);
 
 //
 // Find a string in a table of size nelem, ignoring case.
 // Return -1 when not found.
 //
-int string_in_table (const char *value, const char *tab[], int nelem);
+int string_in_table(const char *value, const char *tab[], int nelem);
 
 //
 // Print description of the parameter.
 //
-void print_options (FILE *out, const char **tab, int num, const char *info);
+void print_options(FILE *out, const char **tab, int num, const char *info);
 
 //
 // Print list of all squelch tones.
 //
-void print_squelch_tones (FILE *out, int normal_only);
+void print_squelch_tones(FILE *out, int normal_only);

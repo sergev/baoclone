@@ -25,17 +25,17 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
 #include "radio.h"
 #include "util.h"
 
-#define NCHAN   24
-#define MEMSZ   0x800
-#define BLKSZ   16
+#define NCHAN 24
+#define MEMSZ 0x800
+#define BLKSZ 16
 
 static const char *OFF_ON[]     = { "Off", "On" };
 static const char *LOW_HIGH[]   = { "Low", "High" };
@@ -75,8 +75,8 @@ static void read_block(int fd, int start, unsigned char *data, int nbytes)
     }
     addr = reply[1] << 8 | reply[2];
     if (reply[0] != 'W' || addr != start || reply[3] != nbytes) {
-        fprintf(stderr, "Bad reply for block 0x%04x of %d bytes: %02x-%02x-%02x-%02x\n",
-            start, nbytes, reply[0], reply[1], reply[2], reply[3]);
+        fprintf(stderr, "Bad reply for block 0x%04x of %d bytes: %02x-%02x-%02x-%02x\n", start,
+                nbytes, reply[0], reply[1], reply[2], reply[3]);
         exit(-1);
     }
 
@@ -147,7 +147,7 @@ static void bft1_download()
     int addr;
 
     memset(radio_mem, 0xff, MEMSZ);
-    for (addr=0; addr<MEMSZ; addr+=BLKSZ)
+    for (addr = 0; addr < MEMSZ; addr += BLKSZ)
         read_block(radio_port, addr, &radio_mem[addr], BLKSZ);
 }
 
@@ -159,7 +159,7 @@ static void bft1_upload(int cont_flag)
     int addr;
     unsigned char reply[1];
 
-    for (addr=0; addr<0x180; addr+=BLKSZ)
+    for (addr = 0; addr < 0x180; addr += BLKSZ)
         write_block(radio_port, addr, &radio_mem[addr], BLKSZ);
 
     // 'Bye'.
@@ -189,13 +189,13 @@ static void decode_squelch(int index, int pol, int *ctcs, int *dcs)
     if (index <= 0x32) {
         // CTCSS value is Hz multiplied by 10.
         *ctcs = CTCSS_TONES[index - 1];
-        *dcs = 0;
+        *dcs  = 0;
         return;
     }
     // DCS mode.
     *dcs = DCS_CODES[index - 0x33];
     if (pol)
-        *dcs = - *dcs;
+        *dcs = -*dcs;
     *ctcs = 0;
 }
 
@@ -218,7 +218,7 @@ static int encode_squelch(char *str, int *pol)
 
         // Find a valid index in DCS table.
         int i;
-        for (i=0; i<NDCS; i++)
+        for (i = 0; i < NDCS; i++)
             if (DCS_CODES[i] == val)
                 break;
         if (i >= NDCS)
@@ -245,12 +245,12 @@ static int encode_squelch(char *str, int *pol)
 
         // Find a valid index in CTCSS table.
         int i;
-        for (i=0; i<NCTCSS; i++)
+        for (i = 0; i < NCTCSS; i++)
             if (CTCSS_TONES[i] == val)
                 break;
         if (i >= NCTCSS)
             return 0;
-        val = i + 1;
+        val  = i + 1;
         *pol = 0;
     } else {
         // Disabled
@@ -261,30 +261,30 @@ static int encode_squelch(char *str, int *pol)
 }
 
 typedef struct {
-    uint8_t     rxfreq[4];      // binary coded decimal, 8 digits
+    uint8_t rxfreq[4]; // binary coded decimal, 8 digits
 
-    uint8_t     rxtone;         // x00 = none
-                                // x01 - x32 = index of the analog tones
-                                // x33 - x9b = index of Digital tones
-                                // Digital tone polarity is handled below by
-                                // ttondinv & ttondinv settings
+    uint8_t rxtone; // x00 = none
+                    // x01 - x32 = index of the analog tones
+                    // x33 - x9b = index of Digital tones
+                    // Digital tone polarity is handled below by
+                    // ttondinv & ttondinv settings
 
-    uint8_t     txoffset[4];    // binary coded decimal, 8 digits
-                                // the difference against RX, direction handled by
-                                // offplus & offminus
+    uint8_t txoffset[4]; // binary coded decimal, 8 digits
+                         // the difference against RX, direction handled by
+                         // offplus & offminus
 
-    uint8_t     txtone;         // See rxtone
+    uint8_t txtone; // See rxtone
 
-    uint8_t     offminus : 1,   // TX = RX - offset
-                offplus  : 1,   // TX = RX + offset
-                _u1      : 1,
-                rtondinv : 1,   // if true RX tone is Digital & Inverted
-                _u2      : 1,
-                ttondinv : 1,   // if true TX tone is Digital & Inverted
-                wide     : 1,   // 1 = Wide, 0 = Narrow
-                scan     : 1;   // if true is included in the scan
+    uint8_t offminus : 1; // TX = RX - offset
+    uint8_t offplus : 1;  // TX = RX + offset
+    uint8_t _u1 : 1;
+    uint8_t rtondinv : 1; // if true RX tone is Digital & Inverted
+    uint8_t _u2 : 1;
+    uint8_t ttondinv : 1; // if true TX tone is Digital & Inverted
+    uint8_t wide : 1;     // 1 = Wide, 0 = Narrow
+    uint8_t scan : 1;     // if true is included in the scan
 
-    uint8_t     _u3[5];
+    uint8_t _u3[5];
 } memory_channel_t;
 
 //
@@ -294,16 +294,16 @@ static int channel_is_defined(memory_channel_t *ch)
 {
     if (ch->rxfreq[0] == 0 && ch->rxfreq[1] == 0 && ch->rxfreq[2] == 0 && ch->rxfreq[3] == 0)
         return 0;
-    if (ch->rxfreq[0] == 0xff && ch->rxfreq[1] == 0xff && ch->rxfreq[2] == 0xff && ch->rxfreq[3] == 0xff)
+    if (ch->rxfreq[0] == 0xff && ch->rxfreq[1] == 0xff && ch->rxfreq[2] == 0xff &&
+        ch->rxfreq[3] == 0xff)
         return 0;
     return 1;
 }
 
-static void decode_channel(int i, int *rx_hz, int *tx_hz,
-    int *rx_ctcs, int *tx_ctcs, int *rx_dcs, int *tx_dcs,
-    int *wide, int *scan)
+static void decode_channel(int i, int *rx_hz, int *tx_hz, int *rx_ctcs, int *tx_ctcs, int *rx_dcs,
+                           int *tx_dcs, int *wide, int *scan)
 {
-    memory_channel_t *ch = i + (memory_channel_t*) &radio_mem[0];
+    memory_channel_t *ch = i + (memory_channel_t *)&radio_mem[0];
 
     *rx_hz = *tx_hz = *rx_ctcs = *tx_ctcs = *rx_dcs = *tx_dcs = 0;
     if (!channel_is_defined(ch))
@@ -341,37 +341,37 @@ static int iround(double x)
     return -(int)(-x + 0.5);
 }
 
-static void setup_channel(int i, double rx_mhz, double tx_mhz,
-    int rq, int tq, int rpol, int tpol, int wide, int scan)
+static void setup_channel(int i, double rx_mhz, double tx_mhz, int rq, int tq, int rpol, int tpol,
+                          int wide, int scan)
 {
-    memory_channel_t *ch = i + (memory_channel_t*) &radio_mem[0x10];
+    memory_channel_t *ch = i + (memory_channel_t *)&radio_mem[0x10];
     int txoff_mhz;
 
     int_to_bcd4(iround(rx_mhz * 100000.0 / 50) * 50, ch->rxfreq);
 
     if (rx_mhz == tx_mhz) {
-        txoff_mhz = 0;
+        txoff_mhz    = 0;
         ch->offminus = 0;
-        ch->offplus = 0;
+        ch->offplus  = 0;
     } else if (tx_mhz > rx_mhz) {
-        txoff_mhz = tx_mhz - rx_mhz;
+        txoff_mhz    = tx_mhz - rx_mhz;
         ch->offminus = 0;
-        ch->offplus = 1;
+        ch->offplus  = 1;
     } else /*if (tx_mhz < rx_mhz)*/ {
-        txoff_mhz = rx_mhz - tx_mhz;
+        txoff_mhz    = rx_mhz - tx_mhz;
         ch->offminus = 1;
-        ch->offplus = 0;
+        ch->offplus  = 0;
     }
 
     int_to_bcd4(iround(txoff_mhz * 100000.0 / 50) * 50, ch->txoffset);
-    ch->rxtone = rq;
-    ch->txtone = tq;
-    ch->wide = wide;
-    ch->scan = scan;
+    ch->rxtone   = rq;
+    ch->txtone   = tq;
+    ch->wide     = wide;
+    ch->scan     = scan;
     ch->rtondinv = rpol;
     ch->ttondinv = tpol;
-    ch->_u1 = 0;
-    ch->_u2 = 0;
+    ch->_u1      = 0;
+    ch->_u2      = 0;
     ch->_u3[0] = ch->_u3[1] = ch->_u3[2] = ch->_u3[3] = ch->_u3[4] = ~0;
 }
 
@@ -381,10 +381,10 @@ static void print_offset(FILE *out, int delta)
         fprintf(out, " 0      ");
     } else {
         if (delta > 0) {
-            fprintf(out, "+");;
+            fprintf(out, "+");
         } else {
-            fprintf(out, "-");;
-            delta = - delta;
+            fprintf(out, "-");
+            delta = -delta;
         }
         if (delta % 1000000 == 0)
             fprintf(out, "%-7u", delta / 1000000);
@@ -395,47 +395,51 @@ static void print_offset(FILE *out, int delta)
 
 static void print_squelch(FILE *out, int ctcs, int dcs)
 {
-    if      (ctcs)    fprintf(out, "%5.1f", ctcs / 10.0);
-    else if (dcs > 0) fprintf(out, "D%03dN", dcs);
-    else if (dcs < 0) fprintf(out, "D%03dI", -dcs);
-    else              fprintf(out, "   - ");
+    if (ctcs)
+        fprintf(out, "%5.1f", ctcs / 10.0);
+    else if (dcs > 0)
+        fprintf(out, "D%03dN", dcs);
+    else if (dcs < 0)
+        fprintf(out, "D%03dI", -dcs);
+    else
+        fprintf(out, "   - ");
 }
 
 //
 // Settings at 0x150.
 //
 typedef struct {
-    uint8_t vhfl[2];        // VHF low limit
-    uint8_t vhfh[2];        // VHF high limit
-    uint8_t uhfl[2];        // UHF low limit
-    uint8_t uhfh[2];        // UHF high limit
+    uint8_t vhfl[2]; // VHF low limit
+    uint8_t vhfh[2]; // VHF high limit
+    uint8_t uhfl[2]; // UHF low limit
+    uint8_t uhfh[2]; // UHF high limit
     uint8_t _u0[8];
-    uint8_t _u1[2];         // start of 0x0160
-    uint8_t squelch;        // byte: 0-9
-    uint8_t vox;            // byte: 0-9
-    uint8_t timeout;        // tot, 0 off, then 30 sec increments up to 180
-    uint8_t backlight : 2,  // backlight 00 = off, 01 = key, 10 = on
-            lock      : 1,  // keylock 0 = ff,  = on
-            beep      : 1,  // key beep 0 = off, 1 = on
-            blo       : 1,  // busy lockout 0 = off, 1 = on
-            ste       : 1,  // squelch tail 0 = off, 1 = on
-            fm_funct  : 1,  // fm-radio 0=off, 1=on ( off disables fm button on set )
-            batsave   : 1;  // battery save 0 = off, 1 = on
-    uint8_t scantype;       // scan type 0 = timed, 1 = carrier, 2 = stop
-    uint8_t channel;        // active channel 1-20, setting it works on upload
-    uint8_t fmrange;        // fm range 1 = low[65-76](ASIA), 0 = high[76-108](AMERICA)
-    uint8_t alarm;          // alarm (count down timer)
-                            //    d0 - d16 in half hour increments => off, 0.5 - 8.0 h
-    uint8_t voice;          // voice prompt 0 = off, 1 = english, 2 = chinese
-    uint8_t volume;         // volume 1-7 as per the radio steps
-                            //    set to #FF by original software on upload
-                            //    chirp uploads actual value and works.
-    uint8_t fm_vfo[2];      // the frequency of the fm receiver.
-                            //    resulting frequency is 65 + value * 0.1 MHz
-                            //    0x145 is then 65 + 325*0.1 = 97.5 MHz
-    uint8_t relaym;         // relay mode, d0 = off, d2 = re-tx, d1 = re-rx
-                            //    still a mystery on how it works
-    uint8_t tx_pwr;         // tx pwr 0 = low (0.5W), 1 = high(1.0W)
+    uint8_t _u1[2];        // start of 0x0160
+    uint8_t squelch;       // byte: 0-9
+    uint8_t vox;           // byte: 0-9
+    uint8_t timeout;       // tot, 0 off, then 30 sec increments up to 180
+    uint8_t backlight : 2; // backlight 00 = off, 01 = key, 10 = on
+    uint8_t lock : 1;      // keylock 0 = ff,  = on
+    uint8_t beep : 1;      // key beep 0 = off, 1 = on
+    uint8_t blo : 1;       // busy lockout 0 = off, 1 = on
+    uint8_t ste : 1;       // squelch tail 0 = off, 1 = on
+    uint8_t fm_funct : 1;  // fm-radio 0=off, 1=on ( off disables fm button on set )
+    uint8_t batsave : 1;   // battery save 0 = off, 1 = on
+    uint8_t scantype;      // scan type 0 = timed, 1 = carrier, 2 = stop
+    uint8_t channel;       // active channel 1-20, setting it works on upload
+    uint8_t fmrange;       // fm range 1 = low[65-76](ASIA), 0 = high[76-108](AMERICA)
+    uint8_t alarm;         // alarm (count down timer)
+                           //    d0 - d16 in half hour increments => off, 0.5 - 8.0 h
+    uint8_t voice;         // voice prompt 0 = off, 1 = english, 2 = chinese
+    uint8_t volume;        // volume 1-7 as per the radio steps
+                           //    set to #FF by original software on upload
+                           //    chirp uploads actual value and works.
+    uint8_t fm_vfo[2];     // the frequency of the fm receiver.
+                           //    resulting frequency is 65 + value * 0.1 MHz
+                           //    0x145 is then 65 + 325*0.1 = 97.5 MHz
+    uint8_t relaym;        // relay mode, d0 = off, d2 = re-tx, d1 = re-rx
+                           //    still a mystery on how it works
+    uint8_t tx_pwr;        // tx pwr 0 = low (0.5W), 1 = high(1.0W)
 } settings_t;
 
 //
@@ -459,15 +463,14 @@ static void bft1_print_config(FILE *out, int verbose)
         fprintf(out, "#\n");
     }
     fprintf(out, "Channel Receive  TxOffset R-Squel T-Squel FM     Scan\n");
-    for (i=0; i<NCHAN; i++) {
+    for (i = 0; i < NCHAN; i++) {
         int rx_hz, tx_hz, rx_ctcs, tx_ctcs, rx_dcs, tx_dcs;
         int wide, scan;
 
         if (i == 21 || i == 22)
             continue;
 
-        decode_channel(i, &rx_hz, &tx_hz, &rx_ctcs, &tx_ctcs,
-            &rx_dcs, &tx_dcs, &wide, &scan);
+        decode_channel(i, &rx_hz, &tx_hz, &rx_ctcs, &tx_ctcs, &rx_dcs, &tx_dcs, &wide, &scan);
         if (rx_hz == 0) {
             // Channel is disabled
             continue;
@@ -484,14 +487,13 @@ static void bft1_print_config(FILE *out, int verbose)
         fprintf(out, "   ");
         print_squelch(out, tx_ctcs, tx_dcs);
 
-        fprintf(out, "   %-6s %s\n",
-            wide ? "Wide" : "Narrow", scan ? "+" : "-");
+        fprintf(out, "   %-6s %s\n", wide ? "Wide" : "Narrow", scan ? "+" : "-");
     }
     if (verbose)
         print_squelch_tones(out, 0);
 
     // Print other settings.
-    settings_t *mode = (settings_t*) &radio_mem[0x150];
+    settings_t *mode = (settings_t *)&radio_mem[0x150];
     fprintf(out, "\n");
 
     // Current Channel
@@ -529,7 +531,8 @@ static void bft1_print_config(FILE *out, int verbose)
 
     // Squelch Tail Eliminate: Off, On
     if (verbose)
-        print_options(out, OFF_ON, 2, "Reduce the squelch tail when communicating with simplex station.");
+        print_options(out, OFF_ON, 2,
+                      "Reduce the squelch tail when communicating with simplex station.");
     fprintf(out, "Squelch Tail Eliminate: %s\n", mode->ste ? "On" : "Off");
 
     // Transmit Timer: Off, 30s, 60s, 90s, 120s, 150s, 180s
@@ -538,8 +541,10 @@ static void bft1_print_config(FILE *out, int verbose)
         fprintf(out, "# Options: Off, 30, 60, 90, 120, 150, 180\n");
     }
     fprintf(out, "Transmit Timer: ");
-    if (mode->timeout == 0) fprintf(out, "Off\n");
-    else                    fprintf(out, "%u\n", mode->timeout * 30);
+    if (mode->timeout == 0)
+        fprintf(out, "Off\n");
+    else
+        fprintf(out, "%u\n", mode->timeout * 30);
 
     // Busy Channel Lockout: Off, On
     if (verbose)
@@ -558,11 +563,14 @@ static void bft1_print_config(FILE *out, int verbose)
     // Alarm Timer: Off, 0.5h ... 8h
     if (verbose) {
         fprintf(out, "\n# Activate alarm after specified number of hours.\n");
-        fprintf(out, "# Options: Off, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8\n");
+        fprintf(out,
+                "# Options: Off, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8\n");
     }
     fprintf(out, "Alarm Timer: ");
-    if (mode->alarm == 0) fprintf(out, "Off\n");
-    else                  fprintf(out, "%d.%d\n", mode->alarm/2, (mode->alarm & 1) ? 5 : 0);
+    if (mode->alarm == 0)
+        fprintf(out, "Off\n");
+    else
+        fprintf(out, "%d.%d\n", mode->alarm / 2, (mode->alarm & 1) ? 5 : 0);
 
     // Voice Prompt: Off, English, Chinese
     if (verbose)
@@ -597,8 +605,10 @@ static void bft1_print_config(FILE *out, int verbose)
         fprintf(out, "# America - 76-108 MHz\n");
         fprintf(out, "# Asia - 65-76 MHz\n");
     }
-    fprintf(out, "FM Radio: %s\n", mode->fm_funct == 0 ? "Off" :
-                                    mode->fmrange == 0 ? "America" : "Asia");
+    fprintf(out, "FM Radio: %s\n",
+            mode->fm_funct == 0  ? "Off"
+            : mode->fmrange == 0 ? "America"
+                                 : "Asia");
 
     // FM Frequency in MHz
     if (verbose) {
@@ -617,17 +627,17 @@ static void bft1_print_config(FILE *out, int verbose)
     if (verbose) {
         fprintf(out, "\n# Frequency limits of VHF band in MHz.\n");
     }
-    fprintf(out, "VHF Range: %d%d%d.%d-%d%d%d.%d\n",
-        mode->vhfl[1]>>4, mode->vhfl[1] & 15, mode->vhfl[0]>>4, mode->vhfl[0] & 15,
-        mode->vhfh[1]>>4, mode->vhfh[1] & 15, mode->vhfh[0]>>4, mode->vhfh[0] & 15);
+    fprintf(out, "VHF Range: %d%d%d.%d-%d%d%d.%d\n", mode->vhfl[1] >> 4, mode->vhfl[1] & 15,
+            mode->vhfl[0] >> 4, mode->vhfl[0] & 15, mode->vhfh[1] >> 4, mode->vhfh[1] & 15,
+            mode->vhfh[0] >> 4, mode->vhfh[0] & 15);
 
     // UHF Range
     if (verbose) {
         fprintf(out, "\n# Frequency limits of UHF band in MHz.\n");
     }
-    fprintf(out, "UHF Range: %d%d%d.%d-%d%d%d.%d\n",
-        mode->uhfl[1]>>4, mode->uhfl[1] & 15, mode->uhfl[0]>>4, mode->uhfl[0] & 15,
-        mode->uhfh[1]>>4, mode->uhfh[1] & 15, mode->uhfh[0]>>4, mode->uhfh[0] & 15);
+    fprintf(out, "UHF Range: %d%d%d.%d-%d%d%d.%d\n", mode->uhfl[1] >> 4, mode->uhfl[1] & 15,
+            mode->uhfl[0] >> 4, mode->uhfl[0] & 15, mode->uhfh[1] >> 4, mode->uhfh[1] & 15,
+            mode->uhfh[0] >> 4, mode->uhfh[0] & 15);
 }
 
 //
@@ -654,12 +664,13 @@ static void bft1_save_image(FILE *img)
 
 static void bft1_parse_parameter(char *param, char *value)
 {
-    settings_t *mode = (settings_t*) &radio_mem[0x150];
+    settings_t *mode = (settings_t *)&radio_mem[0x150];
     int i;
 
     if (strcasecmp("Radio", param) == 0) {
         if (strcasecmp("Baofeng BF-T1", value) != 0) {
-bad:        fprintf(stderr, "Bad value for %s: %s\n", param, value);
+        bad:
+            fprintf(stderr, "Bad value for %s: %s\n", param, value);
             exit(-1);
         }
         return;
@@ -708,7 +719,7 @@ bad:        fprintf(stderr, "Bad value for %s: %s\n", param, value);
         return;
     }
     if (strcasecmp("Scan Resume", param) == 0) {
-        for (i=0; i<3; i++) {
+        for (i = 0; i < 3; i++) {
             if (strcasecmp(SCAN_MODE[i], value) == 0) {
                 mode->scantype = i;
                 return;
@@ -725,7 +736,7 @@ bad:        fprintf(stderr, "Bad value for %s: %s\n", param, value);
         return;
     }
     if (strcasecmp("Voice Prompt", param) == 0) {
-        for (i=0; i<3; i++) {
+        for (i = 0; i < 3; i++) {
             if (strcasecmp(LANGUAGE[i], value) == 0) {
                 mode->voice = i;
                 return;
@@ -746,7 +757,7 @@ bad:        fprintf(stderr, "Bad value for %s: %s\n", param, value);
         return;
     }
     if (strcasecmp("Back Light", param) == 0) {
-        for (i=0; i<3; i++) {
+        for (i = 0; i < 3; i++) {
             if (strcasecmp(BACKLIGHT[i], value) == 0) {
                 mode->backlight = i;
                 return;
@@ -761,24 +772,24 @@ bad:        fprintf(stderr, "Bad value for %s: %s\n", param, value);
         }
         if (strcasecmp("America", value) == 0) {
             mode->fm_funct = 1;
-            mode->fmrange = 0;
+            mode->fmrange  = 0;
             return;
         }
         if (strcasecmp("Asia", value) == 0) {
             mode->fm_funct = 1;
-            mode->fmrange = 1;
+            mode->fmrange  = 1;
             return;
         }
         goto bad;
     }
     if (strcasecmp("FM Frequency", param) == 0) {
-        int mhz10 = atof(value) * 10.0 + 0.5;
+        int mhz10       = atof(value) * 10.0 + 0.5;
         mode->fm_vfo[0] = (mhz10 - 650) >> 8;
         mode->fm_vfo[1] = (mhz10 - 650);
         return;
     }
     if (strcasecmp("Relay Mode", param) == 0) {
-        for (i=0; i<3; i++) {
+        for (i = 0; i < 3; i++) {
             if (strcasecmp(RELAY_MODE[i], value) == 0) {
                 mode->relaym = i;
                 return;
@@ -791,16 +802,12 @@ bad:        fprintf(stderr, "Bad value for %s: %s\n", param, value);
         if (sscanf(value, "%f-%f", &lower, &upper) != 2)
             goto bad;
 
-        int lmhz10 = lower * 10.0 + 0.5;
-        int umhz10 = upper * 10.0 + 0.5;
-        mode->vhfl[1] = ((lmhz10 / 1000 % 10) << 4) |
-                         (lmhz10 / 100  % 10);
-        mode->vhfl[0] = ((lmhz10 / 10   % 10) << 4) |
-                         (lmhz10        % 10);
-        mode->vhfh[1] = ((umhz10 / 1000 % 10) << 4) |
-                         (umhz10 / 100  % 10);
-        mode->vhfh[0] = ((umhz10 / 10   % 10) << 4) |
-                         (umhz10        % 10);
+        int lmhz10    = lower * 10.0 + 0.5;
+        int umhz10    = upper * 10.0 + 0.5;
+        mode->vhfl[1] = ((lmhz10 / 1000 % 10) << 4) | (lmhz10 / 100 % 10);
+        mode->vhfl[0] = ((lmhz10 / 10 % 10) << 4) | (lmhz10 % 10);
+        mode->vhfh[1] = ((umhz10 / 1000 % 10) << 4) | (umhz10 / 100 % 10);
+        mode->vhfh[0] = ((umhz10 / 10 % 10) << 4) | (umhz10 % 10);
         return;
     }
     if (strcasecmp("UHF Range", param) == 0) {
@@ -808,16 +815,12 @@ bad:        fprintf(stderr, "Bad value for %s: %s\n", param, value);
         if (sscanf(value, "%f-%f", &lower, &upper) != 2)
             goto bad;
 
-        int lmhz10 = lower * 10.0 + 0.5;
-        int umhz10 = upper * 10.0 + 0.5;
-        mode->uhfl[1] = ((lmhz10 / 1000 % 10) << 4) |
-                         (lmhz10 / 100  % 10);
-        mode->uhfl[0] = ((lmhz10 / 10   % 10) << 4) |
-                         (lmhz10        % 10);
-        mode->uhfh[1] = ((umhz10 / 1000 % 10) << 4) |
-                         (umhz10 / 100  % 10);
-        mode->uhfh[0] = ((umhz10 / 10   % 10) << 4) |
-                         (umhz10        % 10);
+        int lmhz10    = lower * 10.0 + 0.5;
+        int umhz10    = upper * 10.0 + 0.5;
+        mode->uhfl[1] = ((lmhz10 / 1000 % 10) << 4) | (lmhz10 / 100 % 10);
+        mode->uhfl[0] = ((lmhz10 / 10 % 10) << 4) | (lmhz10 % 10);
+        mode->uhfh[1] = ((umhz10 / 1000 % 10) << 4) | (umhz10 / 100 % 10);
+        mode->uhfh[0] = ((umhz10 / 10 % 10) << 4) | (umhz10 % 10);
         return;
     }
     fprintf(stderr, "Unknown parameter: %s = %s\n", param, value);
@@ -858,8 +861,8 @@ static int bft1_parse_row(int table_id, int first_row, char *line)
     int num, rq, tq, rpol, tpol, wide, scan;
     float rx_mhz, txoff_mhz;
 
-    if (sscanf(line, "%s %s %s %s %s %s %s",
-        num_str, rxfreq_str, offset_str, rq_str, tq_str, wide_str, scan_str) != 7)
+    if (sscanf(line, "%s %s %s %s %s %s %s", num_str, rxfreq_str, offset_str, rq_str, tq_str,
+               wide_str, scan_str) != 7)
         return 0;
 
     num = atoi(num_str);
@@ -867,15 +870,11 @@ static int bft1_parse_row(int table_id, int first_row, char *line)
         fprintf(stderr, "Bad channel number.\n");
         return 0;
     }
-    if (sscanf(rxfreq_str, "%f", &rx_mhz) != 1 ||
-        ! is_valid_frequency(rx_mhz))
-    {
+    if (sscanf(rxfreq_str, "%f", &rx_mhz) != 1 || !is_valid_frequency(rx_mhz)) {
         fprintf(stderr, "Bad receive frequency.\n");
         return 0;
     }
-    if (sscanf(offset_str, "%f", &txoff_mhz) != 1 ||
-        ! is_valid_frequency(rx_mhz + txoff_mhz))
-    {
+    if (sscanf(offset_str, "%f", &txoff_mhz) != 1 || !is_valid_frequency(rx_mhz + txoff_mhz)) {
         fprintf(stderr, "Bad transmit offset.\n");
         return 0;
     }
@@ -905,7 +904,7 @@ static int bft1_parse_row(int table_id, int first_row, char *line)
         memset(radio_mem, 0xff, 21 * 0x10);
         memset(&radio_mem[0x170], 0xff, 0x10);
     }
-    setup_channel(num-1, rx_mhz, rx_mhz + txoff_mhz, rq, tq, rpol, tpol, wide, scan);
+    setup_channel(num - 1, rx_mhz, rx_mhz + txoff_mhz, rq, tq, rpol, tpol, wide, scan);
     return 1;
 }
 
@@ -913,14 +912,6 @@ static int bft1_parse_row(int table_id, int first_row, char *line)
 // Baofeng BF-T1
 //
 radio_device_t radio_bft1 = {
-    "Baofeng BF-T1",
-    bft1_download,
-    bft1_upload,
-    bft1_read_image,
-    bft1_save_image,
-    bft1_print_version,
-    bft1_print_config,
-    bft1_parse_parameter,
-    bft1_parse_header,
-    bft1_parse_row,
+    "Baofeng BF-T1",    bft1_download,     bft1_upload,          bft1_read_image,   bft1_save_image,
+    bft1_print_version, bft1_print_config, bft1_parse_parameter, bft1_parse_header, bft1_parse_row,
 };

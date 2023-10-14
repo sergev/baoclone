@@ -25,84 +25,85 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#include <stdio.h>
 
 //
 // Connect to the radio via the serial port.
 // Identify the type of device.
 //
-void radio_connect (char *port_name);
+void radio_connect(char *port_name);
 
 //
 // Close the serial port.
 //
-void radio_disconnect (void);
+void radio_disconnect(void);
 
 //
 // Read firmware image from the device.
 //
-void radio_download (void);
+void radio_download(void);
 
 //
 // Write firmware image to the device.
 //
-void radio_upload (int cont_flag);
+void radio_upload(int cont_flag);
 
 //
 // Print generic information about the device.
 //
-void radio_print_version (FILE *out);
+void radio_print_version(FILE *out);
 
 //
 // Print full information about the device configuration.
 //
-void radio_print_config (FILE *out, int verbose);
+void radio_print_config(FILE *out, int verbose);
 
 //
 // Read firmware image from the binary file.
 //
-void radio_read_image (char *filename);
+void radio_read_image(char *filename);
 
 //
 // Save firmware image to the binary file.
 //
-void radio_save_image (char *filename);
+void radio_save_image(char *filename);
 
 //
 // Read the configuration from text file, and modify the firmware.
 //
-void radio_parse_config (char *filename);
+void radio_parse_config(char *filename);
 
 //
 // Device-dependent interface to the radio.
 //
 typedef struct {
     const char *name;
-    void (*download) (void);
-    void (*upload) (int cont_flag);
-    void (*read_image) (FILE *img, unsigned char *ident);
-    void (*save_image) (FILE *img);
-    void (*print_version) (FILE *out);
-    void (*print_config) (FILE *out, int verbose);
-    void (*parse_parameter) (char *param, char *value);
-    int (*parse_header) (char *line);
-    int (*parse_row) (int table_id, int first_row, char *line);
+    void (*download)(void);
+    void (*upload)(int cont_flag);
+    void (*read_image)(FILE *img, unsigned char *ident);
+    void (*save_image)(FILE *img);
+    void (*print_version)(FILE *out);
+    void (*print_config)(FILE *out, int verbose);
+    void (*parse_parameter)(char *param, char *value);
+    int (*parse_header)(char *line);
+    int (*parse_row)(int table_id, int first_row, char *line);
 } radio_device_t;
 
-extern radio_device_t radio_uv5r;       // Baofeng UV-5R, UV-5RA
-extern radio_device_t radio_uv5r_aged;  // Baofeng UV-5R with old firmware
-extern radio_device_t radio_uvb5;       // Baofeng UV-B5, UV-B6
-extern radio_device_t radio_bf888s;     // Baofeng BF-888S
-extern radio_device_t radio_bft1;       // Baofeng BF-T1
+extern radio_device_t radio_uv5r;      // Baofeng UV-5R, UV-5RA
+extern radio_device_t radio_uv5r_aged; // Baofeng UV-5R with old firmware
+extern radio_device_t radio_uvb5;      // Baofeng UV-B5, UV-B6
+extern radio_device_t radio_bf888s;    // Baofeng BF-888S
+extern radio_device_t radio_bft1;      // Baofeng BF-T1
 
 //
 // Radio: memory contents.
 //
-extern unsigned char radio_mem [];
+extern unsigned char radio_mem[];
 
 //
 // Radio: identifier
 //
-extern unsigned char radio_ident [8];
+extern unsigned char radio_ident[8];
 
 //
 // File descriptor of serial port with programming cable attached.

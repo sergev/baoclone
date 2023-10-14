@@ -25,9 +25,9 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+
 #include "radio.h"
 #include "util.h"
 
@@ -37,52 +37,59 @@ const char *copyright;
 extern char *optarg;
 extern int optind;
 
-void usage ()
+void usage()
 {
-    fprintf (stderr, _("BaoClone Utility, Version %s, %s\n"), version, copyright);
-    fprintf (stderr, _("Usage:\n"));
-    fprintf (stderr, _("    baoclone [-v] port\n"));
-    fprintf (stderr, _("                          Save device binary image to file 'device.img',\n"));
-    fprintf (stderr, _("                          and text configuration to 'device.conf'.\n"));
-    fprintf (stderr, _("    baoclone -w [-v] port file.img\n"));
-    fprintf (stderr, _("                          Write image to device.\n"));
-    fprintf (stderr, _("    baoclone -c [-v] port file.conf\n"));
-    fprintf (stderr, _("                          Configure device from text file.\n"));
-    fprintf (stderr, _("    baoclone -c [-v] file.img file.conf\n"));
-    fprintf (stderr, _("                          Apply text configuration to the image.\n"));
-    fprintf (stderr, _("    baoclone file.img\n"));
-    fprintf (stderr, _("                          Display configuration from image file.\n"));
-    fprintf (stderr, _("Options:\n"));
-    fprintf (stderr, _("    -w                    Write image to device.\n"));
-    fprintf (stderr, _("    -c                    Configure device from text file.\n"));
-    fprintf (stderr, _("    -v                    Trace serial protocol.\n"));
-    exit (-1);
+    fprintf(stderr, _("BaoClone Utility, Version %s, %s\n"), version, copyright);
+    fprintf(stderr, _("Usage:\n"));
+    fprintf(stderr, _("    baoclone [-v] port\n"));
+    fprintf(stderr,
+            _("                          Save device binary image to file 'device.img',\n"));
+    fprintf(stderr, _("                          and text configuration to 'device.conf'.\n"));
+    fprintf(stderr, _("    baoclone -w [-v] port file.img\n"));
+    fprintf(stderr, _("                          Write image to device.\n"));
+    fprintf(stderr, _("    baoclone -c [-v] port file.conf\n"));
+    fprintf(stderr, _("                          Configure device from text file.\n"));
+    fprintf(stderr, _("    baoclone -c [-v] file.img file.conf\n"));
+    fprintf(stderr, _("                          Apply text configuration to the image.\n"));
+    fprintf(stderr, _("    baoclone file.img\n"));
+    fprintf(stderr, _("                          Display configuration from image file.\n"));
+    fprintf(stderr, _("Options:\n"));
+    fprintf(stderr, _("    -w                    Write image to device.\n"));
+    fprintf(stderr, _("    -c                    Configure device from text file.\n"));
+    fprintf(stderr, _("    -v                    Trace serial protocol.\n"));
+    exit(-1);
 }
 
-int main (int argc, char **argv)
+int main(int argc, char **argv)
 {
     int write_flag = 0, config_flag = 0;
 
     // Set locale and message catalogs.
-    setlocale (LC_ALL, "");
+    setlocale(LC_ALL, "");
 #ifdef MINGW32
     // Files with localized messages should be placed in
     // in c:/Program Files/baoclone/ directory.
-    bindtextdomain ("baoclone", "c:/Program Files/baoclone");
+    bindtextdomain("baoclone", "c:/Program Files/baoclone");
 #else
-    bindtextdomain ("baoclone", "/usr/local/share/locale");
+    bindtextdomain("baoclone", "/usr/local/share/locale");
 #endif
-    textdomain ("baoclone");
+    textdomain("baoclone");
 
     copyright = _("Copyright (C) 2013-2018 Serge Vakulenko KK6ABQ");
-    verbose = 0;
+    verbose   = 0;
     for (;;) {
-        switch (getopt (argc, argv, "vcw")) {
-        case 'v': ++verbose;     continue;
-        case 'w': ++write_flag;  continue;
-        case 'c': ++config_flag; continue;
+        switch (getopt(argc, argv, "vcw")) {
+        case 'v':
+            ++verbose;
+            continue;
+        case 'w':
+            ++write_flag;
+            continue;
+        case 'c':
+            ++config_flag;
+            continue;
         default:
-            usage ();
+            usage();
         case EOF:
             break;
         }
@@ -91,42 +98,42 @@ int main (int argc, char **argv)
     argc -= optind;
     argv += optind;
     if (write_flag + config_flag > 1) {
-        fprintf (stderr, "Only one of -w or -c options is allowed.\n");
+        fprintf(stderr, "Only one of -w or -c options is allowed.\n");
         usage();
     }
-    setvbuf (stdout, 0, _IOLBF, 0);
-    setvbuf (stderr, 0, _IOLBF, 0);
+    setvbuf(stdout, 0, _IOLBF, 0);
+    setvbuf(stderr, 0, _IOLBF, 0);
 
     if (write_flag) {
         // Restore image file to device.
         if (argc != 2)
             usage();
 
-        radio_connect (argv[0]);
-        radio_read_image (argv[1]);
-        radio_print_version (stdout);
-        radio_upload (0);
+        radio_connect(argv[0]);
+        radio_read_image(argv[1]);
+        radio_print_version(stdout);
+        radio_upload(0);
         radio_disconnect();
 
     } else if (config_flag) {
         if (argc != 2)
             usage();
 
-        if (is_file (argv[0])) {
+        if (is_file(argv[0])) {
             // Apply text config to image file.
-            radio_read_image (argv[0]);
-            radio_print_version (stdout);
-            radio_parse_config (argv[1]);
-            radio_save_image ("device.img");
+            radio_read_image(argv[0]);
+            radio_print_version(stdout);
+            radio_parse_config(argv[1]);
+            radio_save_image("device.img");
 
         } else {
             // Update device from text config file.
-            radio_connect (argv[0]);
+            radio_connect(argv[0]);
             radio_download();
-            radio_print_version (stdout);
-            radio_save_image ("backup.img");
-            radio_parse_config (argv[1]);
-            radio_upload (1);
+            radio_print_version(stdout);
+            radio_save_image("backup.img");
+            radio_parse_config(argv[1]);
+            radio_upload(1);
             radio_disconnect();
         }
 
@@ -134,32 +141,32 @@ int main (int argc, char **argv)
         if (argc != 1)
             usage();
 
-        if (is_file (argv[0])) {
+        if (is_file(argv[0])) {
             // Print configuration from image file.
             // Load image from file.
-            radio_read_image (argv[0]);
-            radio_print_version (stdout);
-            radio_print_config (stdout, ! isatty (1));
+            radio_read_image(argv[0]);
+            radio_print_version(stdout);
+            radio_print_config(stdout, !isatty(1));
 
         } else {
             // Dump device to image file.
-            radio_connect (argv[0]);
+            radio_connect(argv[0]);
             radio_download();
-            radio_print_version (stdout);
+            radio_print_version(stdout);
             radio_disconnect();
-            radio_save_image ("device.img");
+            radio_save_image("device.img");
 
             // Print configuration to file.
             const char *filename = "device.conf";
-            printf ("Print configuration to file '%s'.\n", filename);
-            FILE *conf = fopen (filename, "w");
-            if (! conf) {
-                perror (filename);
-                exit (-1);
+            printf("Print configuration to file '%s'.\n", filename);
+            FILE *conf = fopen(filename, "w");
+            if (!conf) {
+                perror(filename);
+                exit(-1);
             }
-            radio_print_version (conf);
-            radio_print_config (conf, 1);
-            fclose (conf);
+            radio_print_version(conf);
+            radio_print_config(conf, 1);
+            fclose(conf);
         }
     }
     return (0);
