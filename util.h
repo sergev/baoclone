@@ -26,6 +26,7 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include <stdio.h>
+#include <stdbool.h>
 
 //
 // Localization.
@@ -45,7 +46,7 @@
 //
 // Trace data i/o via the serial port.
 //
-extern int trace_flag;
+extern bool trace_flag;
 
 //
 // CTCSS tones, Hz*10.

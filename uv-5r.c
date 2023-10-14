@@ -1452,11 +1452,47 @@ static int uv5r_parse_row(int table_id, int first_row, char *line)
 }
 
 //
+// Set VFO mode with given frequency.
+//
+static void uv5r_set_vfo(int vfo_index, double freq_mhz)
+{
+    // Read current VFO settings.
+    read_block(radio_port, 0x0F00, &radio_mem[0x0F00], 0x40);
+
+    // Get existing settings.
+    int band, hz, offset, rx_ctcs, tx_ctcs, rx_dcs, tx_dcs;
+    int lowpower, wide, step, scode;
+    decode_vfo(vfo_index, &band, &hz, &offset, &rx_ctcs, &tx_ctcs, &rx_dcs, &tx_dcs, &lowpower,
+               &wide, &step, &scode);
+
+    // Print old settings for debug.
+    //printf("VFO Band Receive  TxOffset R-Squel T-Squel Step Power FM     Scode\n");
+    //print_vfo(stdout, 'A' + vfo_index, band, hz, offset, rx_ctcs, tx_ctcs, rx_dcs, tx_dcs,
+    //          lowpower, wide, step, scode);
+
+    // Modify VFO settings.
+    band = (freq_mhz > 200);
+    setup_vfo(vfo_index, band, freq_mhz * 1000000, 0, 0, 0, step, lowpower, wide, scode);
+
+    // Print new settings.
+    decode_vfo(vfo_index, &band, &hz, &offset, &rx_ctcs, &tx_ctcs, &rx_dcs, &tx_dcs, &lowpower,
+               &wide, &step, &scode);
+    printf("VFO Band Receive  TxOffset R-Squel T-Squel Step Power FM     Scode\n");
+    print_vfo(stdout, 'A' + vfo_index, band, hz, offset, rx_ctcs, tx_ctcs, rx_dcs, tx_dcs,
+              lowpower, wide, step, scode);
+
+    // Apply new settings.
+    for (unsigned addr = 0x0F00; addr < 0x0F40; addr += 0x10)
+        write_block(radio_port, addr, &radio_mem[addr], 0x10);
+}
+
+//
 // Baofeng UV-5R, UV-5RA
 //
 radio_device_t radio_uv5r = {
     "Baofeng UV-5R",    uv5r_download,     uv5r_upload,          uv5r_read_image,   uv5r_save_image,
     uv5r_print_version, uv5r_print_config, uv5r_parse_parameter, uv5r_parse_header, uv5r_parse_row,
+    uv5r_set_vfo,
 };
 
 //

@@ -387,3 +387,16 @@ void radio_print_config(FILE *out, int verbose)
     }
     device->print_config(out, verbose);
 }
+
+//
+// Set VFO mode with given frequency.
+//
+void radio_set_vfo(int vfo_index, double freq_mhz)
+{
+    if (!device->set_vfo) {
+        fprintf(stderr, "VFO mode is not supported for %s\n", device->name);
+        return;
+    }
+
+    device->set_vfo(vfo_index, freq_mhz);
+}

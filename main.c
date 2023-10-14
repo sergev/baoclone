@@ -40,8 +40,7 @@ void usage()
     fprintf(stderr, _("%s\n"), program_copyright);
     fprintf(stderr, _("Usage:\n"));
     fprintf(stderr, _("    baoclone [-v] port\n"));
-    fprintf(stderr,
-            _("                          Save device binary image to file 'device.img',\n"));
+    fprintf(stderr, _("                          Save device image to file 'device.img',\n"));
     fprintf(stderr, _("                          and text configuration to 'device.conf'.\n"));
     fprintf(stderr, _("    baoclone -w [-v] port file.img\n"));
     fprintf(stderr, _("                          Write image to device.\n"));
@@ -51,16 +50,24 @@ void usage()
     fprintf(stderr, _("                          Apply text configuration to the image.\n"));
     fprintf(stderr, _("    baoclone file.img\n"));
     fprintf(stderr, _("                          Display configuration from image file.\n"));
+    fprintf(stderr, _("    baoclone -a [-v] port mhz\n"));
+    fprintf(stderr, _("    baoclone -b [-v] port mhz\n"));
+    fprintf(stderr, _("                          Set VFO A or B mode with given frequency.\n"));
     fprintf(stderr, _("Options:\n"));
     fprintf(stderr, _("    -w                    Write image to device.\n"));
     fprintf(stderr, _("    -c                    Configure device from text file.\n"));
     fprintf(stderr, _("    -v                    Trace serial protocol.\n"));
+    fprintf(stderr, _("    -a                    Set VFO A mode.\n"));
+    fprintf(stderr, _("    -b                    Set VFO B mode.\n"));
     exit(-1);
 }
 
 int main(int argc, char **argv)
 {
-    int write_flag = 0, config_flag = 0;
+    bool write_flag = false;
+    bool config_flag = false;
+    bool vfo_a_flag = false;
+    bool vfo_b_flag = false;
 
     // Set locale and message catalogs.
     setlocale(LC_ALL, "");
@@ -75,15 +82,21 @@ int main(int argc, char **argv)
 
     trace_flag = 0;
     for (;;) {
-        switch (getopt(argc, argv, "vcw")) {
+        switch (getopt(argc, argv, "vcwab")) {
         case 'v':
-            ++trace_flag;
+            trace_flag = true;
             continue;
         case 'w':
-            ++write_flag;
+            write_flag = true;
             continue;
         case 'c':
-            ++config_flag;
+            config_flag = true;
+            continue;
+        case 'a':
+            vfo_a_flag = true;
+            continue;
+        case 'b':
+            vfo_b_flag = true;
             continue;
         default:
             usage();
@@ -101,7 +114,16 @@ int main(int argc, char **argv)
     setvbuf(stdout, 0, _IOLBF, 0);
     setvbuf(stderr, 0, _IOLBF, 0);
 
-    if (write_flag) {
+    if (vfo_a_flag || vfo_b_flag) {
+        // Set VFO mode.
+        if (argc != 2)
+            usage();
+
+        radio_connect(argv[0]);
+        radio_set_vfo(vfo_b_flag, strtod(argv[1], NULL));
+        radio_disconnect();
+
+    } else if (write_flag) {
         // Restore image file to device.
         if (argc != 2)
             usage();

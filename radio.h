@@ -84,6 +84,11 @@ void radio_save_image(const char *filename);
 void radio_parse_config(const char *filename);
 
 //
+// Set VFO mode with given frequency.
+//
+void radio_set_vfo(int vfo_index, double freq_mhz);
+
+//
 // Device-dependent interface to the radio.
 //
 typedef struct {
@@ -97,6 +102,7 @@ typedef struct {
     void (*parse_parameter)(char *param, char *value);
     int (*parse_header)(char *line);
     int (*parse_row)(int table_id, int first_row, char *line);
+    void (*set_vfo)(int vfo_index, double freq_mhz);
 } radio_device_t;
 
 extern radio_device_t radio_uv5r;      // Baofeng UV-5R, UV-5RA

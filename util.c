@@ -69,7 +69,7 @@ const int DCS_CODES[NDCS] = {
 //
 // Trace data i/o via the serial port.
 //
-int trace_flag;
+bool trace_flag;
 
 //
 // Check for a regular file.
