@@ -25,7 +25,6 @@
 #define DUBNA_TESTS_UTIL_H
 
 #include <gtest/gtest.h>
-
 #include <string>
 
 //

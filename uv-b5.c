@@ -642,7 +642,7 @@ static void uvb5_print_config(FILE *out, int verbose)
         fprintf(out, "# 3) Upper frequency in MHz\n");
         fprintf(out, "#\n");
     }
-    fprintf(out, "Limit Lower  Upper \n");
+    fprintf(out, "Limit Lower  Upper\n");
     fprintf(out, " VHF  %5.1f  %5.1f\n", vhf_lower / 10.0, vhf_upper / 10.0);
     fprintf(out, " UHF  %5.1f  %5.1f\n", uhf_lower / 10.0, uhf_upper / 10.0);
 

@@ -43,12 +43,6 @@
 #endif
 
 //
-// Program version.
-//
-extern const char program_version[];
-extern const char *copyright;
-
-//
 // Trace data i/o via the serial port.
 //
 extern int trace_flag;
@@ -75,7 +69,7 @@ void print_hex(const unsigned char *data, int len);
 //
 // Open the serial port.
 //
-int serial_open(char *portname);
+int serial_open(const char *portname);
 
 //
 // Close the serial port.
@@ -107,7 +101,7 @@ void mdelay(unsigned msec);
 //
 // Check for a regular file.
 //
-int is_file(char *filename);
+int is_file(const char *filename);
 
 //
 // Convert 32-bit value from binary coded decimal
@@ -137,7 +131,7 @@ void int_to_bcd4(int val, unsigned char bcd[4]);
 // Get a binary value of the parameter: On/Off,
 // Ignore case.
 //
-int on_off(char *param, char *value);
+int on_off(const char *param, const char *value);
 
 //
 // Get integer value, or "Off" as 0,

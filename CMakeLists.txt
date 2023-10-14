@@ -33,7 +33,7 @@ execute_process(
     OUTPUT_STRIP_TRAILING_WHITESPACE
     OUTPUT_VARIABLE GIT_REVCOUNT
 )
-set_source_files_properties(main.c PROPERTIES COMPILE_FLAGS
+set_source_files_properties(radio.c PROPERTIES COMPILE_FLAGS
     -DVERSION=\\"${CMAKE_PROJECT_VERSION}.${GIT_REVCOUNT}-${GIT_HASH}\\"
 )
 

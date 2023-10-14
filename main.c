@@ -31,15 +31,12 @@
 #include "radio.h"
 #include "util.h"
 
-const char program_version[] = VERSION;
-const char *copyright;
-
 extern char *optarg;
 extern int optind;
 
 void usage()
 {
-    fprintf(stderr, _("BaoClone Utility, Version %s, %s\n"), program_version, copyright);
+    fprintf(stderr, _("BaoClone Utility, Version %s, %s\n"), program_version, program_copyright);
     fprintf(stderr, _("Usage:\n"));
     fprintf(stderr, _("    baoclone [-v] port\n"));
     fprintf(stderr,
@@ -75,7 +72,6 @@ int main(int argc, char **argv)
 #endif
     textdomain("baoclone");
 
-    copyright  = _("Copyright (C) 2013-2023 Serge Vakulenko KK6ABQ");
     trace_flag = 0;
     for (;;) {
         switch (getopt(argc, argv, "vcw")) {

@@ -36,6 +36,9 @@
 
 #include "util.h"
 
+const char program_version[]   = VERSION;
+const char program_copyright[] = "Copyright (C) 2013-2023 Serge Vakulenko KK6ABQ";
+
 int radio_port;                  // File descriptor of programming serial port
 unsigned char radio_ident[8];    // Radio: identifier
 unsigned char radio_mem[0x7000]; // Radio: memory contents
@@ -124,7 +127,7 @@ static int try_magic(const unsigned char *magic)
 //
 // Connect to the radio and identify the type of device.
 //
-void radio_connect(char *port_name)
+void radio_connect(const char *port_name)
 {
     static const unsigned char UV5R_MODEL_AGED[] = "\x50\xBB\xFF\x01\x25\x98\x4D";
     static const unsigned char UV5R_MODEL_291[]  = "\x50\xBB\xFF\x20\x12\x07\x25";
@@ -224,7 +227,7 @@ void radio_upload(int cont_flag)
 //
 // Read firmware image from the binary file.
 //
-void radio_read_image(char *filename)
+void radio_read_image(const char *filename)
 {
     FILE *img;
     struct stat st;
@@ -269,7 +272,7 @@ void radio_read_image(char *filename)
 //
 // Save firmware image to the binary file.
 //
-void radio_save_image(char *filename)
+void radio_save_image(const char *filename)
 {
     FILE *img;
 
@@ -286,7 +289,7 @@ void radio_save_image(char *filename)
 //
 // Read the configuration from text file, and modify the firmware.
 //
-void radio_parse_config(char *filename)
+void radio_parse_config(const char *filename)
 {
     FILE *conf;
     char line[256], *p, *v;
@@ -379,7 +382,7 @@ void radio_print_config(FILE *out, int verbose)
             buf[0] = 0;
         fprintf(out, "#\n");
         fprintf(out, "# This configuration was generated %sby BaoClone Utility,\n", buf);
-        fprintf(out, "# Version %s, %s\n", program_version, copyright);
+        fprintf(out, "# Version %s, %s\n", program_version, program_copyright);
         fprintf(out, "#\n");
     }
     device->print_config(out, verbose);

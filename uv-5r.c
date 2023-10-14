@@ -653,7 +653,7 @@ static void print_vfo(FILE *out, char name, int band, int hz, int offset, int rx
     else
         sprintf(sgroup, "%u", scode);
 
-    fprintf(out, "   %-4s %-4s  %-6s %-3s\n", STEP_NAME[step], lowpower ? "Low" : "High",
+    fprintf(out, "   %-4s %-4s  %-6s %s\n", STEP_NAME[step], lowpower ? "Low" : "High",
             wide ? "Wide" : "Narrow", sgroup);
 }
 
@@ -781,7 +781,7 @@ static void print_config(FILE *out, int verbose, int is_aged)
         else
             sprintf(sgroup, "%u", scode);
 
-        fprintf(out, "   %-4s  %-6s %-4s %-3s %-5s %-4s\n", lowpower ? "Low" : "High",
+        fprintf(out, "   %-4s  %-6s %-4s %-3s %-5s %s\n", lowpower ? "Low" : "High",
                 wide ? "Wide" : "Narrow", scan ? "+" : "-", bcl ? "+" : "-", sgroup,
                 PTTID_NAME[pttid]);
     }

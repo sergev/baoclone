@@ -27,11 +27,21 @@
  */
 #include <stdio.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+//
+// Program version.
+//
+extern const char program_version[];
+extern const char program_copyright[];
+
 //
 // Connect to the radio via the serial port.
 // Identify the type of device.
 //
-void radio_connect(char *port_name);
+void radio_connect(const char *port_name);
 
 //
 // Close the serial port.
@@ -61,17 +71,17 @@ void radio_print_config(FILE *out, int verbose);
 //
 // Read firmware image from the binary file.
 //
-void radio_read_image(char *filename);
+void radio_read_image(const char *filename);
 
 //
 // Save firmware image to the binary file.
 //
-void radio_save_image(char *filename);
+void radio_save_image(const char *filename);
 
 //
 // Read the configuration from text file, and modify the firmware.
 //
-void radio_parse_config(char *filename);
+void radio_parse_config(const char *filename);
 
 //
 // Device-dependent interface to the radio.
@@ -114,3 +124,7 @@ extern int radio_port;
 // Read/write progress counter.
 //
 extern int radio_progress;
+
+#ifdef __cplusplus
+}
+#endif

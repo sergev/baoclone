@@ -74,7 +74,7 @@ int trace_flag;
 //
 // Check for a regular file.
 //
-int is_file(char *filename)
+int is_file(const char *filename)
 {
 #ifdef MINGW32
     // Treat COM* as a device.
@@ -105,7 +105,7 @@ void print_hex(const unsigned char *data, int len)
 //
 // Open the serial port.
 //
-int serial_open(char *portname)
+int serial_open(const char *portname)
 {
 #ifdef MINGW32
     HANDLE fd;
@@ -366,7 +366,7 @@ void int_to_bcd4(int val, uint8_t bcd[4])
 // Ignore case.
 // For invlid value, print a message and halt.
 //
-int on_off(char *param, char *value)
+int on_off(const char *param, const char *value)
 {
     if (strcasecmp("On", value) == 0)
         return 1;
