@@ -299,7 +299,7 @@ static void decode_channel(int i, char *name, int *rx_hz, int *txoff_hz, int *rx
     *step = *revfreq = 0;
     if (name)
         *name = 0;
-    if (ch->rxfreq == 0 || ch->rxfreq == 0xffffffff)
+    if (ch->rxfreq == 0 || bcd_invalid(ch->rxfreq))
         return;
 
     // Extract channel name; strip trailing FF's.

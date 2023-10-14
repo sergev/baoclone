@@ -263,7 +263,7 @@ static void decode_channel(int i, int *rx_hz, int *tx_hz, int *rx_ctcs, int *tx_
     memory_channel_t *ch = i + (memory_channel_t *)&radio_mem[0x10];
 
     *rx_hz = *tx_hz = *rx_ctcs = *tx_ctcs = *rx_dcs = *tx_dcs = 0;
-    if (ch->rxfreq == 0 || ch->rxfreq == 0xffffffff)
+    if (ch->rxfreq == 0 || bcd_invalid(ch->rxfreq))
         return;
 
     // Decode channel frequencies.

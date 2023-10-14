@@ -317,6 +317,30 @@ void mdelay(unsigned msec)
 }
 
 //
+// Check whether a binary coded decimal is invalid.
+//
+int bcd_invalid(unsigned bcd)
+{
+    if (((bcd >> 28) & 15) > 9)
+        return 1;
+    if (((bcd >> 24) & 15) > 9)
+        return 1;
+    if (((bcd >> 20) & 15) > 9)
+        return 1;
+    if (((bcd >> 16) & 15) > 9)
+        return 1;
+    if (((bcd >> 12) & 15) > 9)
+        return 1;
+    if (((bcd >> 8) & 15) > 9)
+        return 1;
+    if (((bcd >> 4) & 15) > 9)
+        return 1;
+    if ((bcd & 15) > 9)
+        return 1;
+    return 0;
+}
+
+//
 // Convert 32-bit value from binary coded decimal
 // to integer format (8 digits).
 //

@@ -363,7 +363,7 @@ static void decode_channel(int i, char *name, int *rx_hz, int *tx_hz, int *rx_ct
 
     *rx_hz = *tx_hz = *rx_ctcs = *tx_ctcs = *rx_dcs = *tx_dcs = 0;
     *name                                                     = 0;
-    if (ch->rxfreq == 0 || ch->rxfreq == 0xffffffff)
+    if (ch->rxfreq == 0 || bcd_invalid(ch->rxfreq))
         return;
 
     // Extract channel name; strip trailing FF's.

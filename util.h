@@ -104,6 +104,11 @@ void mdelay(unsigned msec);
 int is_file(const char *filename);
 
 //
+// Check whether a binary coded decimal is invalid.
+//
+int bcd_invalid(unsigned bcd);
+
+//
 // Convert 32-bit value from binary coded decimal
 // to integer format (8 digits).
 //
