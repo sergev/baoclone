@@ -128,6 +128,7 @@ void radio_connect (char *port_name)
     static const unsigned char UV5R_MODEL_AGED[] = "\x50\xBB\xFF\x01\x25\x98\x4D";
     static const unsigned char UV5R_MODEL_291[] = "\x50\xBB\xFF\x20\x12\x07\x25";
     static const unsigned char UVB5_MODEL[] = "PROGRAM";
+    static const unsigned char BF888_MODEL[] = "\2PROGRAM";
     int retry;
 
     fprintf (stderr, "Connect to %s.\n", port_name);
@@ -158,6 +159,16 @@ void radio_connect (char *port_name)
         if (try_magic (UV5R_MODEL_291)) {
             device = &radio_uv5r;       // Baofeng UV-5R, UV-5RA
             break;
+        }
+        mdelay (500);
+        if (try_magic (BF888_MODEL)) {
+            if (strncmp ((char*)radio_ident, "P3107", 5) == 0) {
+                device = &radio_bf888s; // Baofeng BF-888S
+                break;
+            }
+            printf ("Unrecognized identifier: ");
+            print_hex (radio_ident, 8);
+            printf ("\n");
         }
         mdelay (500);
         if (try_magic (UV5R_MODEL_AGED)) {
