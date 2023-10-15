@@ -1457,6 +1457,7 @@ static int uv5r_parse_row(int table_id, int first_row, char *line)
 static void uv5r_set_vfo(int vfo_index, double freq_mhz)
 {
     // Read current VFO settings.
+    read_block(radio_port, 0x0E40, &radio_mem[0x0E40], 0x40);
     read_block(radio_port, 0x0F00, &radio_mem[0x0F00], 0x40);
 
     // Get existing settings.
@@ -1481,9 +1482,19 @@ static void uv5r_set_vfo(int vfo_index, double freq_mhz)
     print_vfo(stdout, 'A' + vfo_index, band, hz, offset, rx_ctcs, tx_ctcs, rx_dcs, tx_dcs,
               lowpower, wide, step, scode);
 
+    // Switch to VFO mode, select channel A or B.
+    if (vfo_index == 0) {
+        radio_mem[0x0E4A] &= ~0x80; // select VFO channel A
+    } else {
+        radio_mem[0x0E4A] |= 0x80;  // select VFO channel B
+    }
+    radio_mem[0x0E4C] = 0; // set VFO mode
+
     // Apply new settings.
-    for (unsigned addr = 0x0F00; addr < 0x0F40; addr += 0x10)
+    write_block(radio_port, 0x0E40, &radio_mem[0x0E40], 0x10);
+    for (unsigned addr = 0x0F00; addr < 0x0F40; addr += 0x10) {
         write_block(radio_port, addr, &radio_mem[addr], 0x10);
+    }
 }
 
 //
