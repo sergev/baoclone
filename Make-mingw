@@ -15,12 +15,17 @@ endif
 ifeq (/usr/bin/i686-w64-mingw32-gcc,$(wildcard /usr/bin/i686-w64-mingw32-gcc))
     CC          = i686-w64-mingw32-gcc
 endif
+ifeq (/usr/local/bin/i686-w64-mingw32-gcc,$(wildcard /usr/local/bin/i686-w64-mingw32-gcc))
+    CC          = i686-w64-mingw32-gcc
+endif
 
 all:		baoclone.exe
 
 baoclone.exe:	$(OBJS)
 		$(CC) $(LDFLAGS) -o $@ $(OBJS) $(LIBS)
 
+clean:
+		rm -f *.o *.exe
 ###
 bf-888s.o: bf-888s.c radio.h util.h
 bf-t1.o: bf-t1.c radio.h util.h
