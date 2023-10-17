@@ -554,8 +554,8 @@ typedef struct {
     uint8_t lowpower : 1;
 } vfo_t;
 
-static void decode_vfo(int index, int *band, int *hz, int *offset, int *rx_ctcs, int *tx_ctcs,
-                       int *rx_dcs, int *tx_dcs, int *lowpower, int *wide, int *step, int *scode)
+void uv5r_decode_vfo(int index, int *band, int *hz, int *offset, int *rx_ctcs, int *tx_ctcs,
+                     int *rx_dcs, int *tx_dcs, int *lowpower, int *wide, int *step, int *scode)
 {
     vfo_t *vfo = (vfo_t *)&radio_mem[index ? 0x0F28 : 0x0F08];
 
@@ -577,8 +577,8 @@ static void decode_vfo(int index, int *band, int *hz, int *offset, int *rx_ctcs,
     *scode    = vfo->scode;
 }
 
-static void setup_vfo(int index, int band, double rx_mhz, double tx_offset_mhz, int rxtone, int txtone, int step,
-                      int lowpower, int wide, int scode)
+void uv5r_setup_vfo(int index, int band, double rx_mhz, double tx_offset_mhz, int rxtone, int txtone, int step,
+                    int lowpower, int wide, int scode)
 {
     vfo_t *vfo = (vfo_t *)&radio_mem[index ? 0x0F28 : 0x0F08];
 
@@ -805,13 +805,13 @@ static void print_config(FILE *out, int verbose, int is_aged)
         fprintf(out, "# 10) Last (6-th) character of ANI code, or '-'\n");
         fprintf(out, "#\n");
     }
-    decode_vfo(0, &band, &hz, &offset, &rx_ctcs, &tx_ctcs, &rx_dcs, &tx_dcs, &lowpower, &wide,
-               &step, &scode);
+    uv5r_decode_vfo(0, &band, &hz, &offset, &rx_ctcs, &tx_ctcs, &rx_dcs, &tx_dcs, &lowpower, &wide,
+                    &step, &scode);
     fprintf(out, "VFO Band Receive  TxOffset R-Squel T-Squel Step Power FM     Scode\n");
     print_vfo(out, 'A', band, hz, offset, rx_ctcs, tx_ctcs, rx_dcs, tx_dcs, lowpower, wide, step,
               scode);
-    decode_vfo(1, &band, &hz, &offset, &rx_ctcs, &tx_ctcs, &rx_dcs, &tx_dcs, &lowpower, &wide,
-               &step, &scode);
+    uv5r_decode_vfo(1, &band, &hz, &offset, &rx_ctcs, &tx_ctcs, &rx_dcs, &tx_dcs, &lowpower, &wide,
+                    &step, &scode);
     print_vfo(out, 'B', band, hz, offset, rx_ctcs, tx_ctcs, rx_dcs, tx_dcs, lowpower, wide, step,
               scode);
 
@@ -1400,7 +1400,7 @@ static int parse_vfo(int first_row, char *line)
         return 0;
     }
 
-    setup_vfo(num, band, rx_mhz, txoff_mhz, rq, tq, step, lowpower, wide, scode);
+    uv5r_setup_vfo(num, band, rx_mhz, txoff_mhz, rq, tq, step, lowpower, wide, scode);
     return 1;
 }
 
@@ -1465,8 +1465,8 @@ static void uv5r_set_vfo(int vfo_index, double freq_mhz)
     // Get existing settings.
     int band, hz, offset, rx_ctcs, tx_ctcs, rx_dcs, tx_dcs;
     int lowpower, wide, step, scode;
-    decode_vfo(vfo_index, &band, &hz, &offset, &rx_ctcs, &tx_ctcs, &rx_dcs, &tx_dcs, &lowpower,
-               &wide, &step, &scode);
+    uv5r_decode_vfo(vfo_index, &band, &hz, &offset, &rx_ctcs, &tx_ctcs, &rx_dcs, &tx_dcs, &lowpower,
+                    &wide, &step, &scode);
 
     // Print old settings for debug.
     //printf("VFO Band Receive  TxOffset R-Squel T-Squel Step Power FM     Scode\n");
@@ -1474,12 +1474,12 @@ static void uv5r_set_vfo(int vfo_index, double freq_mhz)
     //          lowpower, wide, step, scode);
 
     // Modify VFO settings.
-    band = (freq_mhz > 200);
-    setup_vfo(vfo_index, band, freq_mhz, 0.0, 0, 0, step, lowpower, wide, scode);
+    band = (freq_mhz > 200) ? 'U' : 'V';
+    uv5r_setup_vfo(vfo_index, band, freq_mhz, 0.0, 0, 0, step, lowpower, wide, scode);
 
     // Print new settings.
-    decode_vfo(vfo_index, &band, &hz, &offset, &rx_ctcs, &tx_ctcs, &rx_dcs, &tx_dcs, &lowpower,
-               &wide, &step, &scode);
+    uv5r_decode_vfo(vfo_index, &band, &hz, &offset, &rx_ctcs, &tx_ctcs, &rx_dcs, &tx_dcs, &lowpower,
+                    &wide, &step, &scode);
     printf("VFO Band Receive  TxOffset R-Squel T-Squel Step Power FM     Scode\n");
     print_vfo(stdout, 'A' + vfo_index, band, hz, offset, rx_ctcs, tx_ctcs, rx_dcs, tx_dcs,
               lowpower, wide, step, scode);

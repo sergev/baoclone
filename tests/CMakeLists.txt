@@ -11,6 +11,7 @@ add_definitions(-DTEST_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 add_executable(unit_tests EXCLUDE_FROM_ALL
     config_test.cpp
     version_test.cpp
+    uv5r_test.cpp
     util.cpp
 )
 add_dependencies(unit_tests ${PROJECT_NAME})

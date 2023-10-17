@@ -131,6 +131,14 @@ extern int radio_port;
 //
 extern int radio_progress;
 
+//
+// For testing.
+//
+void uv5r_decode_vfo(int index, int *band, int *hz, int *offset, int *rx_ctcs, int *tx_ctcs,
+                     int *rx_dcs, int *tx_dcs, int *lowpower, int *wide, int *step, int *scode);
+void uv5r_setup_vfo(int index, int band, double rx_mhz, double tx_offset_mhz, int rxtone, int txtone, int step,
+                    int lowpower, int wide, int scode);
+
 #ifdef __cplusplus
 }
 #endif
