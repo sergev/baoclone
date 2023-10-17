@@ -330,17 +330,6 @@ static void decode_channel(int i, int *rx_hz, int *tx_hz, int *rx_ctcs, int *tx_
     *scan = ch->scan;
 }
 
-//
-// Round double value to integer.
-//
-static int iround(double x)
-{
-    if (x >= 0)
-        return (int)(x + 0.5);
-
-    return -(int)(-x + 0.5);
-}
-
 static void setup_channel(int i, double rx_mhz, double tx_mhz, int rq, int tq, int rpol, int tpol,
                           int wide, int scan)
 {

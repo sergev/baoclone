@@ -504,3 +504,14 @@ const char *trim_str(const char *src, unsigned nbytes, char *buf)
 
     return beg;
 }
+
+//
+// Round double value to integer.
+//
+int iround(double x)
+{
+    if (x >= 0)
+        return (int)(x + 0.5);
+
+    return -(int)(-x + 0.5);
+}

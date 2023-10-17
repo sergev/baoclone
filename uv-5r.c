@@ -321,7 +321,7 @@ static int encode_squelch(char *str)
             return 0;
 
         // Round to integer.
-        val = hz * 10.0 + 0.5;
+        val = iround(hz * 10.0);
         if (val < 0x0258)
             return 0;
     } else {
@@ -431,10 +431,10 @@ static void setup_channel(int i, char *name, double rx_mhz, double tx_mhz, int r
 {
     memory_channel_t *ch = i + (memory_channel_t *)radio_mem;
 
-    ch->rxfreq = int_to_bcd((int)(rx_mhz * 100000.0 + 0.5));
+    ch->rxfreq = int_to_bcd(iround(rx_mhz * 100000.0));
 
     if (is_valid_frequency(tx_mhz)) {
-        ch->txfreq = int_to_bcd((int)(tx_mhz * 100000.0 + 0.5));
+        ch->txfreq = int_to_bcd(iround(tx_mhz * 100000.0));
     } else {
         // disable TX
         ch->txfreq = 0xffffffff;
@@ -577,10 +577,13 @@ static void decode_vfo(int index, int *band, int *hz, int *offset, int *rx_ctcs,
     *scode    = vfo->scode;
 }
 
-static void setup_vfo(int index, int band, int hz, int offset, int rxtone, int txtone, int step,
+static void setup_vfo(int index, int band, double rx_mhz, double tx_offset_mhz, int rxtone, int txtone, int step,
                       int lowpower, int wide, int scode)
 {
     vfo_t *vfo = (vfo_t *)&radio_mem[index ? 0x0F28 : 0x0F08];
+
+    unsigned hz     = iround(rx_mhz * 1000000.0);
+    unsigned offset = iround(tx_offset_mhz * 1000000.0);
 
     vfo->band      = (band == 'U');
     vfo->freq[0]   = (hz / 100000000) % 10;
@@ -1397,8 +1400,7 @@ static int parse_vfo(int first_row, char *line)
         return 0;
     }
 
-    setup_vfo(num, band, rx_mhz * 1000000, txoff_mhz * 1000000, rq, tq, step, lowpower, wide,
-              scode);
+    setup_vfo(num, band, rx_mhz, txoff_mhz, rq, tq, step, lowpower, wide, scode);
     return 1;
 }
 
@@ -1473,7 +1475,7 @@ static void uv5r_set_vfo(int vfo_index, double freq_mhz)
 
     // Modify VFO settings.
     band = (freq_mhz > 200);
-    setup_vfo(vfo_index, band, freq_mhz * 1000000, 0, 0, 0, step, lowpower, wide, scode);
+    setup_vfo(vfo_index, band, freq_mhz, 0.0, 0, 0, step, lowpower, wide, scode);
 
     // Print new settings.
     decode_vfo(vfo_index, &band, &hz, &offset, &rx_ctcs, &tx_ctcs, &rx_dcs, &tx_dcs, &lowpower,

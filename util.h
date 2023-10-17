@@ -171,3 +171,8 @@ void print_squelch_tones(FILE *out, int normal_only);
 // Copy string, trim spaces.
 //
 const char *trim_str(const char *src, unsigned nbytes, char *buf);
+
+//
+// Round double value to integer.
+//
+int iround(double x);
