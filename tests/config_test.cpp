@@ -109,6 +109,38 @@ Low Vol Inhibit TX: On
 )");
 }
 
+TEST(config, bf_888s_pmr446)
+{
+    // PMR446 channels are on a 6.25 kHz raster, so some need 10 Hz precision.
+    create_file("bf_888s_pmr446_input.conf", R"(
+Channel Receive  TxOffset R-Squel T-Squel Power FM     Scan BCL Scramble
+    1   446.00625 0          -       -    Low   Narrow +    +   -
+    2   446.11875 0          -       -    Low   Narrow +    +   -
+    3   446.16875 0          -       -    Low   Narrow +    +   -
+    4   446.19375 0          -       -    Low   Narrow +    +   -
+    5   446.1500  0          -       -    Low   Narrow +    +   -
+    6   446.1500  +0.00625   -       -    Low   Narrow +    +   -
+    7   446.1500  -5.125     -       -    Low   Narrow +    +   -
+)");
+    radio_read_image(TEST_DIR "/../examples/bf-888s-factory.img");
+    radio_parse_config("bf_888s_pmr446_input.conf");
+
+    FILE *output = fopen("bf_888s_pmr446.conf", "w");
+    EXPECT_NE(output, nullptr);
+    radio_print_config(output, false);
+    fclose(output);
+
+    auto lines = file_contents_split("bf_888s_pmr446.conf");
+    ASSERT_GE(lines.size(), 9u);
+    EXPECT_EQ(lines[2], "    1   446.00625  0          -       -    Low   Narrow +    +   -");
+    EXPECT_EQ(lines[3], "    2   446.11875  0          -       -    Low   Narrow +    +   -");
+    EXPECT_EQ(lines[4], "    3   446.16875  0          -       -    Low   Narrow +    +   -");
+    EXPECT_EQ(lines[5], "    4   446.19375  0          -       -    Low   Narrow +    +   -");
+    EXPECT_EQ(lines[6], "    5   446.1500  0          -       -    Low   Narrow +    +   -");
+    EXPECT_EQ(lines[7], "    6   446.1500 +0.00625    -       -    Low   Narrow +    +   -");
+    EXPECT_EQ(lines[8], "    7   446.1500 -5.125      -       -    Low   Narrow +    +   -");
+}
+
 TEST(config, bf_888s_v2_factory)
 {
     auto result = show_config("bf-888s-factory2.img");

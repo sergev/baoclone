@@ -473,8 +473,12 @@ static void print_offset(FILE *out, int delta)
         }
         if (delta % 1000000 == 0)
             fprintf(out, "%-7u", delta / 1000000);
-        else
+        else if (delta % 1000 == 0)
             fprintf(out, "%-7.3f", delta / 1000000.0);
+        else if (delta % 10 == 0)
+            fprintf(out, "%-7.5f", delta / 1000000.0);
+        else
+            fprintf(out, "%-7.6f", delta / 1000000.0);
     }
 }
 

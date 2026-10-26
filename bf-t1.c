@@ -377,8 +377,12 @@ static void print_offset(FILE *out, int delta)
         }
         if (delta % 1000000 == 0)
             fprintf(out, "%-7u", delta / 1000000);
-        else
+        else if (delta % 1000 == 0)
             fprintf(out, "%-7.3f", delta / 1000000.0);
+        else if (delta % 10 == 0)
+            fprintf(out, "%-7.5f", delta / 1000000.0);
+        else
+            fprintf(out, "%-7.6f", delta / 1000000.0);
     }
 }
 
@@ -848,7 +852,7 @@ static int bft1_parse_row(int table_id, int first_row, char *line)
     char num_str[256], rxfreq_str[256], offset_str[256], rq_str[256];
     char tq_str[256], wide_str[256], scan_str[256];
     int num, rq, tq, rpol, tpol, wide, scan;
-    float rx_mhz, txoff_mhz;
+    double rx_mhz, txoff_mhz;
 
     if (sscanf(line, "%s %s %s %s %s %s %s", num_str, rxfreq_str, offset_str, rq_str, tq_str,
                wide_str, scan_str) != 7)
@@ -859,11 +863,11 @@ static int bft1_parse_row(int table_id, int first_row, char *line)
         fprintf(stderr, "Bad channel number.\n");
         return 0;
     }
-    if (sscanf(rxfreq_str, "%f", &rx_mhz) != 1 || !is_valid_frequency(rx_mhz)) {
+    if (sscanf(rxfreq_str, "%lf", &rx_mhz) != 1 || !is_valid_frequency(rx_mhz)) {
         fprintf(stderr, "Bad receive frequency.\n");
         return 0;
     }
-    if (sscanf(offset_str, "%f", &txoff_mhz) != 1 || !is_valid_frequency(rx_mhz + txoff_mhz)) {
+    if (sscanf(offset_str, "%lf", &txoff_mhz) != 1 || !is_valid_frequency(rx_mhz + txoff_mhz)) {
         fprintf(stderr, "Bad transmit offset.\n");
         return 0;
     }

@@ -287,8 +287,8 @@ static void setup_channel(int i, double rx_mhz, double tx_mhz, int rq, int tq, i
 {
     memory_channel_t *ch = i + (memory_channel_t *)&radio_mem[0x10];
 
-    ch->rxfreq    = int_to_bcd((int)(rx_mhz * 100000.0));
-    ch->txfreq    = int_to_bcd((int)(tx_mhz * 100000.0));
+    ch->rxfreq    = int_to_bcd(iround(rx_mhz * 100000.0));
+    ch->txfreq    = int_to_bcd(iround(tx_mhz * 100000.0));
     ch->rxtone    = rq;
     ch->txtone    = tq;
     ch->highpower = highpower;
@@ -313,8 +313,12 @@ static void print_offset(FILE *out, int delta)
         }
         if (delta % 1000000 == 0)
             fprintf(out, "%-7u", delta / 1000000);
-        else
+        else if (delta % 1000 == 0)
             fprintf(out, "%-7.3f", delta / 1000000.0);
+        else if (delta % 10 == 0)
+            fprintf(out, "%-7.5f", delta / 1000000.0);
+        else
+            fprintf(out, "%-7.6f", delta / 1000000.0);
     }
 }
 
@@ -393,7 +397,11 @@ static void bf888s_print_config(FILE *out, int verbose)
             continue;
         }
 
-        fprintf(out, "%5d   %8.4f ", i + 1, rx_hz / 1000000.0);
+        // Show the 10 Hz digit only when needed, e.g. 446.16875 for PMR446.
+        if (rx_hz % 100 == 0)
+            fprintf(out, "%5d   %8.4f ", i + 1, rx_hz / 1000000.0);
+        else
+            fprintf(out, "%5d   %9.5f ", i + 1, rx_hz / 1000000.0);
         print_offset(out, tx_hz - rx_hz);
         fprintf(out, " ");
         print_squelch(out, rx_ctcs, rx_dcs);
@@ -656,7 +664,7 @@ static int bf888s_parse_row(int table_id, int first_row, char *line)
     char tq_str[256], power_str[256], wide_str[256], scan_str[256];
     char bcl_str[256], scramble_str[256];
     int num, rq, tq, highpower, wide, scan, bcl, scramble;
-    float rx_mhz, txoff_mhz;
+    double rx_mhz, txoff_mhz;
 
     if (sscanf(line, "%s %s %s %s %s %s %s %s %s %s", num_str, rxfreq_str, offset_str, rq_str,
                tq_str, power_str, wide_str, scan_str, bcl_str, scramble_str) != 10)
@@ -667,11 +675,11 @@ static int bf888s_parse_row(int table_id, int first_row, char *line)
         fprintf(stderr, "Bad channel number.\n");
         return 0;
     }
-    if (sscanf(rxfreq_str, "%f", &rx_mhz) != 1 || !is_valid_frequency(rx_mhz)) {
+    if (sscanf(rxfreq_str, "%lf", &rx_mhz) != 1 || !is_valid_frequency(rx_mhz)) {
         fprintf(stderr, "Bad receive frequency.\n");
         return 0;
     }
-    if (sscanf(offset_str, "%f", &txoff_mhz) != 1 || !is_valid_frequency(rx_mhz + txoff_mhz)) {
+    if (sscanf(offset_str, "%lf", &txoff_mhz) != 1 || !is_valid_frequency(rx_mhz + txoff_mhz)) {
         fprintf(stderr, "Bad transmit offset.\n");
         return 0;
     }
