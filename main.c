@@ -46,8 +46,9 @@ void usage()
     fprintf(stderr, _("                          Write image to device.\n"));
     fprintf(stderr, _("    baoclone -c [-v] port file.conf\n"));
     fprintf(stderr, _("                          Configure device from text file.\n"));
-    fprintf(stderr, _("    baoclone -c [-v] file.img file.conf\n"));
-    fprintf(stderr, _("                          Apply text configuration to the image.\n"));
+    fprintf(stderr, _("    baoclone -c [-v] file.img file.conf [out.img]\n"));
+    fprintf(stderr, _("                          Apply text configuration to the image,\n"));
+    fprintf(stderr, _("                          and save result to 'out.img' (default 'device.img').\n"));
     fprintf(stderr, _("    baoclone file.img\n"));
     fprintf(stderr, _("                          Display configuration from image file.\n"));
     fprintf(stderr, _("    baoclone -a [-v] port mhz\n"));
@@ -135,7 +136,7 @@ int main(int argc, char **argv)
         radio_disconnect();
 
     } else if (config_flag) {
-        if (argc != 2)
+        if (argc < 2 || argc > 3)
             usage();
 
         if (is_file(argv[0])) {
@@ -143,10 +144,12 @@ int main(int argc, char **argv)
             radio_read_image(argv[0]);
             radio_print_version(stdout, 1);
             radio_parse_config(argv[1]);
-            radio_save_image("device.img");
+            radio_save_image(argc == 3 ? argv[2] : "device.img");
 
         } else {
             // Update device from text config file.
+            if (argc != 2)
+                usage();
             radio_connect(argv[0]);
             radio_download();
             radio_print_version(stdout, 1);

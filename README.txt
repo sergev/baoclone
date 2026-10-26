@@ -26,6 +26,11 @@ Previous device image saved to 'backup.img':
 
     baoclone -c [-v] port file.conf
 
+Apply text configuration to an image file, and save the result
+to 'out.img' (default 'device.img'):
+
+    baoclone -c [-v] file.img file.conf [out.img]
+
 Show configuration from image file:
 
     baoclone file.img
