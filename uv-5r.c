@@ -1006,16 +1006,16 @@ static void aged_read_image(FILE *img, unsigned char *ident)
 //
 // Save memory image to the binary file.
 //
-static void uv5r_save_image(FILE *img)
+static void uv5r_save_image(FILE *img, const unsigned char *ident)
 {
-    fwrite(radio_ident, 1, 8, img);
+    fwrite(ident, 1, 8, img);
     fwrite(&radio_mem[0], 1, 0x1800, img);
     fwrite(&radio_mem[0x1EC0], 1, 0x2000 - 0x1EC0, img);
 }
 
-static void aged_save_image(FILE *img)
+static void aged_save_image(FILE *img, const unsigned char *ident)
 {
-    fwrite(radio_ident, 1, 8, img);
+    fwrite(ident, 1, 8, img);
     fwrite(&radio_mem[0], 1, 0x1800, img);
 }
 

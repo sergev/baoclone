@@ -96,7 +96,7 @@ typedef struct {
     void (*download)(void);
     void (*upload)(int cont_flag);
     void (*read_image)(FILE *img, unsigned char *ident);
-    void (*save_image)(FILE *img);
+    void (*save_image)(FILE *img, const unsigned char *ident);
     void (*print_version)(FILE *out, int show_version);
     void (*print_config)(FILE *out, int verbose);
     void (*parse_parameter)(char *param, char *value);

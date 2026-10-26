@@ -515,9 +515,9 @@ static void bf888s_read_image(FILE *img, unsigned char *ident)
 // Save memory image to the binary file.
 // Try to be compatible with Baofeng BF-480 software.
 //
-static void bf888s_save_image(FILE *img)
+static void bf888s_save_image(FILE *img, const unsigned char *ident)
 {
-    fwrite(radio_ident, 1, 8, img);
+    fwrite(ident, 1, 8, img);
     fwrite("\xff\xff\xff\xff\xff\xff\xff\xff", 1, 8, img);
     fwrite(&radio_mem[0x10], 1, 0x2b0 - 0x10, img);
     fwrite("\xff\xff\xff\xff\xff\xff\xff\xff", 1, 8, img);

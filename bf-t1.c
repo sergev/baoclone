@@ -646,7 +646,7 @@ static void bft1_read_image(FILE *img, unsigned char *ident)
 // Save memory image to the binary file.
 // Try to be compatible with Baofeng BF-480 software.
 //
-static void bft1_save_image(FILE *img)
+static void bft1_save_image(FILE *img, const unsigned char *ident)
 {
     fwrite(radio_mem, 1, MEMSZ, img);
 }

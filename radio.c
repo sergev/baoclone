@@ -282,7 +282,7 @@ void radio_save_image(const char *filename)
         perror(filename);
         exit(-1);
     }
-    device->save_image(img);
+    device->save_image(img, image_ident);
     fclose(img);
 }
 

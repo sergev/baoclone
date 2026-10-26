@@ -788,9 +788,9 @@ static void uvb5_read_image(FILE *img, unsigned char *ident)
 // Save memory image to the binary file.
 // Try to be compatible with Chirp.
 //
-static void uvb5_save_image(FILE *img)
+static void uvb5_save_image(FILE *img, const unsigned char *ident)
 {
-    fwrite(radio_ident, 1, 8, img);
+    fwrite(ident, 1, 8, img);
     fwrite("Radio Program data v1.08\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 1, 40, img);
     fwrite(&radio_mem[0], 1, 0x1000, img);
 }
